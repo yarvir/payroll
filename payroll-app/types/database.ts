@@ -27,6 +27,7 @@ export type Database = {
           role?: UserRole
           updated_at?: string
         }
+        Relationships: []
       }
       employee_groups: {
         Row: {
@@ -46,6 +47,7 @@ export type Database = {
           name?: string
           description?: string | null
         }
+        Relationships: []
       }
       employees: {
         Row: {
@@ -95,6 +97,7 @@ export type Database = {
           hire_date?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
     }
     Views: Record<string, never>
