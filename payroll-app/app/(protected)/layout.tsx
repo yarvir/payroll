@@ -26,8 +26,14 @@ export default async function ProtectedLayout({
   if (!profileData) {
     // Sign out first so the middleware won't redirect the user back from /login
     // to /dashboard, which would create an infinite loop.
+    console.error('[Auth] No profile row found for authenticated user:', user.id, user.email)
     await supabase.auth.signOut()
-    redirect('/login')
+    redirect(
+      '/login?error=' +
+        encodeURIComponent(
+          'Your account is not fully set up. Please contact your administrator.'
+        )
+    )
   }
 
   return (
