@@ -1,9 +1,44 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { canManageEmployees } from '@/lib/roles'
 import EditEmployeeModal from './EditEmployeeModal'
 import type { Employee, EmployeeGroup, UserRole } from '@/types/database'
+
+// ── Column definitions ────────────────────────────────────────────────────────
+
+type ColumnId =
+  | 'employee_number'
+  | 'full_name'
+  | 'email'
+  | 'position'
+  | 'department'
+  | 'group'
+  | 'status'
+  | 'salary'
+  | 'birthdate'
+  | 'sensitive'
+
+const ALL_COLUMNS: { id: ColumnId; label: string; sensitiveOnly?: boolean }[] = [
+  { id: 'employee_number', label: 'Employee Number' },
+  { id: 'full_name',       label: 'Full Name' },
+  { id: 'email',           label: 'Email' },
+  { id: 'position',        label: 'Position' },
+  { id: 'department',      label: 'Department' },
+  { id: 'group',           label: 'Group' },
+  { id: 'status',          label: 'Status' },
+  { id: 'salary',          label: 'Salary', sensitiveOnly: true },
+  { id: 'birthdate',       label: 'Birthdate' },
+  { id: 'sensitive',       label: 'Sensitive' },
+]
+
+const DEFAULT_COLUMNS: ColumnId[] = [
+  'employee_number', 'full_name', 'position', 'group', 'status',
+]
+
+const LS_KEY = 'payroll_employee_columns'
+
+// ── Supporting types ──────────────────────────────────────────────────────────
 
 interface EmployeeWithGroup extends Employee {
   employee_groups: EmployeeGroup | null
@@ -17,16 +52,18 @@ interface EmployeeTableProps {
 }
 
 const STATUS_STYLES: Record<Employee['status'], string> = {
-  active: 'bg-green-100 text-green-800',
+  active:   'bg-green-100 text-green-800',
   inactive: 'bg-gray-100 text-gray-600',
   on_leave: 'bg-yellow-100 text-yellow-800',
 }
 
 const STATUS_LABELS: Record<Employee['status'], string> = {
-  active: 'Active',
+  active:   'Active',
   inactive: 'Inactive',
   on_leave: 'On Leave',
 }
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export default function EmployeeTable({
   employees,
@@ -39,8 +76,59 @@ export default function EmployeeTable({
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [showSensitiveOnly, setShowSensitiveOnly] = useState(false)
   const [editingEmployee, setEditingEmployee] = useState<EmployeeWithGroup | null>(null)
+  const [columnsOpen, setColumnsOpen] = useState(false)
+  const [visibleColumns, setVisibleColumns] = useState<Set<ColumnId>>(
+    new Set(DEFAULT_COLUMNS),
+  )
+  const columnsRef = useRef<HTMLDivElement>(null)
 
   const canManage = canManageEmployees(userRole)
+
+  // Load persisted column prefs on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(LS_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored) as ColumnId[]
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setVisibleColumns(new Set(parsed))
+        }
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }, [])
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!columnsOpen) return
+    function onMouseDown(e: MouseEvent) {
+      if (columnsRef.current && !columnsRef.current.contains(e.target as Node)) {
+        setColumnsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    return () => document.removeEventListener('mousedown', onMouseDown)
+  }, [columnsOpen])
+
+  function toggleColumn(id: ColumnId) {
+    setVisibleColumns(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      try {
+        localStorage.setItem(LS_KEY, JSON.stringify([...next]))
+      } catch {
+        // ignore storage errors
+      }
+      return next
+    })
+  }
+
+  const availableColumns = ALL_COLUMNS.filter(c => !c.sensitiveOnly || viewSensitive)
 
   const filtered = useMemo(() => {
     return employees.filter(emp => {
@@ -64,7 +152,6 @@ export default function EmployeeTable({
     })
   }, [employees, search, selectedGroup, statusFilter, showSensitiveOnly])
 
-  // Group employees by their group for grouped view
   const groupedEmployees = useMemo(() => {
     const map = new Map<string, { group: EmployeeGroup | null; members: EmployeeWithGroup[] }>()
 
@@ -76,12 +163,11 @@ export default function EmployeeTable({
       map.get(key)!.members.push(emp)
     })
 
-    // Sort: named groups first, ungrouped last
     const entries = Array.from(map.entries())
     entries.sort(([, a], [, b]) => {
       if (!a.group) return 1
       if (!b.group) return -1
-      return (a.group.name).localeCompare(b.group.name)
+      return a.group.name.localeCompare(b.group.name)
     })
 
     return entries
@@ -89,7 +175,7 @@ export default function EmployeeTable({
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
+      {/* Toolbar */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap gap-3 items-center">
         {/* Search */}
         <div className="relative flex-1 min-w-48">
@@ -143,6 +229,52 @@ export default function EmployeeTable({
           </label>
         )}
 
+        {/* Columns button + dropdown */}
+        <div ref={columnsRef} className="relative">
+          <button
+            onClick={() => setColumnsOpen(v => !v)}
+            className={`inline-flex items-center gap-1.5 px-3 py-2 border rounded-lg text-sm transition ${
+              columnsOpen
+                ? 'border-indigo-400 bg-indigo-50 text-indigo-700'
+                : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            {/* columns / view-columns icon */}
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+            </svg>
+            Columns
+            <span className="min-w-[1.125rem] h-[1.125rem] rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium flex items-center justify-center px-1">
+              {visibleColumns.size}
+            </span>
+          </button>
+
+          {columnsOpen && (
+            <div className="absolute right-0 top-full mt-1.5 w-52 bg-white border border-gray-200 rounded-xl shadow-lg z-20 p-2">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 pt-1 pb-2">
+                Visible columns
+              </p>
+              <div className="space-y-0.5">
+                {availableColumns.map(col => (
+                  <label
+                    key={col.id}
+                    className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer select-none"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.has(col.id)}
+                      onChange={() => toggleColumn(col.id)}
+                      className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm text-gray-700">{col.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         <span className="ml-auto text-sm text-gray-500">
           {filtered.length} result{filtered.length !== 1 ? 's' : ''}
         </span>
@@ -183,6 +315,7 @@ export default function EmployeeTable({
                     employee={emp}
                     viewSensitive={viewSensitive}
                     canManage={canManage}
+                    cols={visibleColumns}
                     onEdit={setEditingEmployee}
                   />
                 ))}
@@ -205,67 +338,102 @@ export default function EmployeeTable({
   )
 }
 
+// ── Employee row ──────────────────────────────────────────────────────────────
+
 function EmployeeRow({
   employee: emp,
   viewSensitive,
   canManage,
+  cols,
   onEdit,
 }: {
   employee: EmployeeWithGroup
   viewSensitive: boolean
   canManage: boolean
+  cols: Set<ColumnId>
   onEdit: (emp: EmployeeWithGroup) => void
 }) {
+  const show = (id: ColumnId) => cols.has(id)
+
   return (
     <div className="group px-5 py-4 flex items-center gap-4 hover:bg-gray-50 transition">
-      {/* Avatar */}
+      {/* Avatar — always shown */}
       <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold text-sm flex-shrink-0">
         {emp.full_name.charAt(0).toUpperCase()}
       </div>
 
-      {/* Name + email */}
+      {/* Identity block — always present to take up flex space */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-900 truncate">{emp.full_name}</span>
-          {emp.is_sensitive && viewSensitive && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-red-50 text-red-600 border border-red-100 flex-shrink-0">
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-              Sensitive
-            </span>
-          )}
-        </div>
-        <p className="text-xs text-gray-400 truncate">{emp.email}</p>
+        {show('full_name') && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-900 truncate">{emp.full_name}</span>
+            {show('sensitive') && emp.is_sensitive && viewSensitive && (
+              <SensitiveBadge />
+            )}
+          </div>
+        )}
+        {/* Sensitive badge standalone when name is hidden */}
+        {!show('full_name') && show('sensitive') && emp.is_sensitive && viewSensitive && (
+          <SensitiveBadge />
+        )}
+        {show('email') && (
+          <p className="text-xs text-gray-400 truncate">{emp.email}</p>
+        )}
       </div>
 
       {/* Employee number */}
-      <span className="text-xs font-mono text-gray-400 hidden sm:block flex-shrink-0">
-        {emp.employee_number}
-      </span>
+      {show('employee_number') && (
+        <span className="text-xs font-mono text-gray-400 hidden sm:block flex-shrink-0">
+          {emp.employee_number}
+        </span>
+      )}
 
       {/* Position */}
-      {emp.position && (
+      {show('position') && emp.position && (
         <span className="text-sm text-gray-500 hidden md:block flex-shrink-0 max-w-40 truncate">
           {emp.position}
         </span>
       )}
 
-      {/* Salary (sensitive) */}
-      {viewSensitive && (
+      {/* Department */}
+      {show('department') && emp.department && (
+        <span className="text-xs text-gray-500 hidden md:block flex-shrink-0 px-2 py-0.5 bg-gray-100 rounded-full">
+          {emp.department}
+        </span>
+      )}
+
+      {/* Group */}
+      {show('group') && emp.employee_groups && (
+        <span className="text-xs text-indigo-600 hidden md:block flex-shrink-0 px-2 py-0.5 bg-indigo-50 rounded-full">
+          {emp.employee_groups.name}
+        </span>
+      )}
+
+      {/* Birthdate — no DB column yet */}
+      {show('birthdate') && (
+        <span className="text-sm text-gray-300 hidden lg:block flex-shrink-0">—</span>
+      )}
+
+      {/* Salary */}
+      {show('salary') && viewSensitive && (
         <span className="text-sm text-gray-700 font-medium hidden lg:block flex-shrink-0 w-24 text-right">
           {emp.salary != null
-            ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(emp.salary)
+            ? new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                maximumFractionDigits: 0,
+              }).format(emp.salary)
             : <span className="text-gray-300">—</span>
           }
         </span>
       )}
 
       {/* Status */}
-      <span className={`text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0 ${STATUS_STYLES[emp.status]}`}>
-        {STATUS_LABELS[emp.status]}
-      </span>
+      {show('status') && (
+        <span className={`text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0 ${STATUS_STYLES[emp.status]}`}>
+          {STATUS_LABELS[emp.status]}
+        </span>
+      )}
 
       {/* Edit button — visible on row hover for managers */}
       {canManage && (
@@ -281,5 +449,17 @@ function EmployeeRow({
         </button>
       )}
     </div>
+  )
+}
+
+function SensitiveBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-red-50 text-red-600 border border-red-100 flex-shrink-0">
+      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+      </svg>
+      Sensitive
+    </span>
   )
 }
