@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { deactivateUser, reactivateUser } from './actions'
+import { deactivateUser, reactivateUser, deleteUser } from './actions'
 import InviteUserModal from './InviteUserModal'
 import EditUserModal from './EditUserModal'
 import { ROLE_LABELS, ROLE_COLORS } from '@/lib/roles'
@@ -40,6 +40,7 @@ export default function UsersClient({ userRows, employees }: Props) {
   const [inviteOpen, setInviteOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<UserRow | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   function handleToggleBan(row: UserRow) {
@@ -49,7 +50,24 @@ export default function UsersClient({ userRows, employees }: Props) {
         const result = row.banned
           ? await reactivateUser(row.id)
           : await deactivateUser(row.id)
-        if (result.error) {
+        if (result?.error) {
+          setActionError(result.error)
+        } else {
+          router.refresh()
+        }
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : 'An unexpected error occurred.')
+      }
+    })
+  }
+
+  function handleDelete(userId: string) {
+    setActionError(null)
+    setDeleteConfirmId(null)
+    startTransition(async () => {
+      try {
+        const result = await deleteUser(userId)
+        if (result?.error) {
           setActionError(result.error)
         } else {
           router.refresh()
@@ -174,23 +192,51 @@ export default function UsersClient({ userRows, employees }: Props) {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => setEditTarget(row)}
-                        className="text-xs text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 rounded hover:bg-indigo-50 transition"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleToggleBan(row)}
-                        disabled={pending}
-                        className={`text-xs font-medium px-2 py-1 rounded transition disabled:opacity-50 ${
-                          row.banned
-                            ? 'text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50'
-                            : 'text-red-500 hover:text-red-700 hover:bg-red-50'
-                        }`}
-                      >
-                        {row.banned ? 'Reactivate' : 'Deactivate'}
-                      </button>
+                      {deleteConfirmId === row.id ? (
+                        <>
+                          <span className="text-xs text-gray-500">Delete permanently?</span>
+                          <button
+                            onClick={() => handleDelete(row.id)}
+                            disabled={pending}
+                            className="text-xs font-medium px-2 py-1 rounded text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 transition"
+                          >
+                            Yes, delete
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirmId(null)}
+                            className="text-xs font-medium px-2 py-1 rounded text-gray-600 hover:bg-gray-100 transition"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => setEditTarget(row)}
+                            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 rounded hover:bg-indigo-50 transition"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleToggleBan(row)}
+                            disabled={pending}
+                            className={`text-xs font-medium px-2 py-1 rounded transition disabled:opacity-50 ${
+                              row.banned
+                                ? 'text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50'
+                                : 'text-amber-600 hover:text-amber-800 hover:bg-amber-50'
+                            }`}
+                          >
+                            {row.banned ? 'Reactivate' : 'Deactivate'}
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirmId(row.id)}
+                            disabled={pending}
+                            className="text-xs font-medium px-2 py-1 rounded text-red-500 hover:text-red-700 hover:bg-red-50 disabled:opacity-50 transition"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>

@@ -118,6 +118,29 @@ export async function updateUser(
   return {}
 }
 
+export async function deleteUser(userId: string): Promise<{ error?: string }> {
+  try {
+    const admin = await requireOwner()
+    if (!admin) return { error: 'Only owners can delete users.' }
+
+    // Unlink any linked employee first
+    await admin.from('employees').update({ profile_id: null }).eq('profile_id', userId)
+
+    // Delete the profile row
+    await admin.from('profiles').delete().eq('id', userId)
+
+    // Delete the auth user
+    const { error } = await admin.auth.admin.deleteUser(userId)
+    if (error) return { error: error.message }
+
+    revalidatePath('/users')
+    revalidatePath('/employees')
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'An unexpected error occurred.' }
+  }
+}
+
 export async function deactivateUser(userId: string): Promise<{ error?: string }> {
   try {
     const admin = await requireOwner()
