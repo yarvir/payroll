@@ -65,15 +65,18 @@ function CallbackHandler() {
       }
 
       // ── 3. Implicit (legacy) flow — tokens in URL hash fragment ───────────
-      // The Supabase JS client auto-detects and processes #access_token=…
-      // during getSession(), establishing the session from the fragment.
+      // createBrowserClient uses flowType:'pkce' and won't auto-detect hash
+      // tokens via getSession(). Parse access_token/refresh_token from the
+      // fragment ourselves and call setSession() directly.
       if (hasHashToken) {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
-        if (session) {
-          router.replace(hashType === 'invite' ? '/auth/set-password' : next)
-          return
+        const access_token = hashParams.get('access_token')
+        const refresh_token = hashParams.get('refresh_token')
+        if (access_token && refresh_token) {
+          const { error } = await supabase.auth.setSession({ access_token, refresh_token })
+          if (!error) {
+            router.replace(hashType === 'invite' ? '/auth/set-password' : next)
+            return
+          }
         }
       }
 
