@@ -51,7 +51,7 @@ export default async function UsersPage() {
     last_sign_in_at: u.last_sign_in_at ?? null,
     created_at: u.created_at,
     // banned_until is returned by the API but not in the TS type
-    banned: !!((u as Record<string, unknown>).banned_until),
+    banned: !!(((u as unknown) as Record<string, unknown>).banned_until),
     profile: (profileMap.get(u.id) as Profile) ?? null,
     linked_employee: employeeByProfileId.get(u.id) ?? null,
   }))
