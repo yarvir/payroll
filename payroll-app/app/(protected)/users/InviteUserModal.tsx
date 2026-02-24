@@ -8,6 +8,7 @@ import type { Employee, UserRole } from '@/types/database'
 
 const ROLES: UserRole[] = ['owner', 'hr', 'accountant', 'employee']
 
+
 interface Props {
   employees: Pick<Employee, 'id' | 'full_name' | 'employee_number' | 'profile_id'>[]
   onClose: () => void
@@ -17,7 +18,6 @@ export default function InviteUserModal({ employees, onClose }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [role, setRole] = useState<UserRole>('employee')
 
   // Only show unlinked employees as options
   const availableEmployees = employees.filter((e) => !e.profile_id)
@@ -85,8 +85,7 @@ export default function InviteUserModal({ employees, onClose }: Props) {
             <select
               name="role"
               required
-              value={role}
-              onChange={(e) => setRole(e.target.value as UserRole)}
+              defaultValue="employee"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
             >
               {ROLES.map((r) => (
@@ -97,27 +96,25 @@ export default function InviteUserModal({ employees, onClose }: Props) {
             </select>
           </div>
 
-          {role === 'employee' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Link to Employee Profile
-              </label>
-              <select
-                name="employee_id"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-              >
-                <option value="">— No link —</option>
-                {availableEmployees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.full_name} ({emp.employee_number})
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1 text-xs text-gray-400">
-                Only employees without a linked user account are shown.
-              </p>
-            </div>
-          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Link to Employee Profile
+            </label>
+            <select
+              name="employee_id"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+            >
+              <option value="">— No link —</option>
+              {availableEmployees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.full_name} ({emp.employee_number})
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-400">
+              Only employees without a linked user account are shown.
+            </p>
+          </div>
 
           <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-700">
             An invitation email will be sent. The user will set their password when

@@ -19,7 +19,6 @@ export default function EditUserModal({ user, employees, onClose }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [role, setRole] = useState<UserRole>(user.profile?.role ?? 'employee')
 
   // Available employees: unlinked ones + the one currently linked to this user
   const availableEmployees = employees.filter(
@@ -81,8 +80,7 @@ export default function EditUserModal({ user, employees, onClose }: Props) {
             <select
               name="role"
               required
-              value={role}
-              onChange={(e) => setRole(e.target.value as UserRole)}
+              defaultValue={user.profile?.role ?? 'employee'}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
             >
               {ROLES.map((r) => (
@@ -93,25 +91,26 @@ export default function EditUserModal({ user, employees, onClose }: Props) {
             </select>
           </div>
 
-          {role === 'employee' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Linked Employee Profile
-              </label>
-              <select
-                name="employee_id"
-                defaultValue={user.linked_employee?.id ?? ''}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-              >
-                <option value="">— No link —</option>
-                {availableEmployees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.full_name} ({emp.employee_number})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Link to Employee Profile
+            </label>
+            <select
+              name="employee_id"
+              defaultValue={user.linked_employee?.id ?? ''}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+            >
+              <option value="">— No link —</option>
+              {availableEmployees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.full_name} ({emp.employee_number})
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-400">
+              Only employees without a linked user account are shown.
+            </p>
+          </div>
 
           {/* Footer */}
           <div className="flex justify-end gap-3 pt-1 border-t border-gray-100">
