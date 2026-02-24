@@ -25,14 +25,19 @@ export default async function UsersPage() {
   const authUsers = authData?.users ?? []
 
   // Fetch all profiles and employees for joining
-  const { data: profiles } = await admin.from('profiles').select('*')
-  const { data: employees } = await admin
+  const { data: profilesData } = await admin.from('profiles').select('*')
+  const profiles = profilesData as Profile[] | null
+  const { data: employeesData } = await admin
     .from('employees')
     .select('id, full_name, employee_number, profile_id')
     .order('full_name')
+  const employees = employeesData as Pick<
+    Employee,
+    'id' | 'full_name' | 'employee_number' | 'profile_id'
+  >[] | null
 
   const profileMap = new Map(
-    (profiles ?? []).map((p: Profile) => [p.id, p]),
+    (profiles ?? []).map((p) => [p.id, p]),
   )
   const employeeByProfileId = new Map(
     (employees ?? [])
@@ -54,12 +59,7 @@ export default async function UsersPage() {
   return (
     <UsersClient
       userRows={userRows}
-      employees={
-        (employees ?? []) as Pick<
-          Employee,
-          'id' | 'full_name' | 'employee_number' | 'profile_id'
-        >[]
-      }
+      employees={employees ?? []}
     />
   )
 }
