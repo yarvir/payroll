@@ -50,12 +50,10 @@ export async function inviteUser(formData: FormData): Promise<{ error?: string }
 
   const userId = inviteData.user.id
 
-  const { error: profileError } = await admin.from('profiles').insert({
-    id: userId,
-    email,
-    role,
-    full_name: null,
-  })
+  const { error: profileError } = await admin.from('profiles').upsert(
+    { id: userId, email, role, full_name: null },
+    { onConflict: 'id', ignoreDuplicates: false }
+  )
 
   if (profileError) {
     await admin.auth.admin.deleteUser(userId)
