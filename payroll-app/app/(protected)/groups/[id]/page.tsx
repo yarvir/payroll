@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { canViewSensitive } from '@/lib/roles'
-import type { Employee, UserRole } from '@/types/database'
+import type { Employee, EmployeeGroup, UserRole } from '@/types/database'
 
 const STATUS_STYLES: Record<Employee['status'], string> = {
   active: 'bg-green-100 text-green-800',
@@ -37,13 +37,15 @@ export default async function GroupDetailPage({
   const userRole = (profileData?.role ?? 'employee') as UserRole
   const viewSensitive = canViewSensitive(userRole)
 
-  const { data: group } = await supabase
+  const { data: groupData } = await supabase
     .from('employee_groups')
     .select('*')
     .eq('id', params.id)
     .single()
 
-  if (!group) notFound()
+  if (!groupData) notFound()
+
+  const group = groupData as EmployeeGroup
 
   const { data: employees } = await supabase
     .from('employees')
