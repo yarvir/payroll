@@ -16,7 +16,7 @@ async function requireManagePermission() {
   const admin = createAdminClient()
   const { data: profile } = await admin
     .from('profiles')
-    .select('role')
+    .select('*')
     .eq('id', user.id)
     .single()
 
