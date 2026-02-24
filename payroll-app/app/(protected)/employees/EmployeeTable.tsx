@@ -120,7 +120,7 @@ export default function EmployeeTable({
         next.add(id)
       }
       try {
-        localStorage.setItem(LS_KEY, JSON.stringify([...next]))
+        localStorage.setItem(LS_KEY, JSON.stringify(Array.from(next)))
       } catch {
         // ignore storage errors
       }
