@@ -14,7 +14,9 @@ export async function GET(request: Request) {
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`)
+      // Invite tokens must always land on set-password regardless of next param
+      const redirect = type === 'invite' ? '/auth/set-password' : next
+      return NextResponse.redirect(`${origin}${redirect}`)
     }
   }
 

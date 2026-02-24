@@ -32,7 +32,10 @@ export async function updateSession(request: NextRequest) {
 
   const url = request.nextUrl.clone()
   const isAuthRoute = url.pathname === '/login'
-  const isPublicRoute = isAuthRoute || url.pathname === '/auth/callback'
+  const isPublicRoute =
+    isAuthRoute ||
+    url.pathname === '/auth/callback' ||
+    url.pathname === '/auth/set-password'
 
   if (!user && !isPublicRoute) {
     url.pathname = '/login'
