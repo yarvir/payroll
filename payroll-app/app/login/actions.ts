@@ -10,10 +10,26 @@ export async function login(formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  console.log('[Login] Attempting sign in for:', email)
 
-  if (error) {
-    redirect('/login?error=' + encodeURIComponent(error.message))
+  let signInError: string | null = null
+
+  try {
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      console.error('[Login] Auth error:', error.message, '| Status:', error.status)
+      signInError = error.message
+    } else {
+      console.log('[Login] Sign in successful for:', email)
+    }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'An unexpected error occurred'
+    console.error('[Login] Unexpected exception during sign in:', e)
+    signInError = message
+  }
+
+  if (signInError) {
+    redirect('/login?error=' + encodeURIComponent(signInError))
   }
 
   revalidatePath('/', 'layout')
