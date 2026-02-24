@@ -2,17 +2,22 @@
 
 import { useTransition, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { addEmployee } from './actions'
-import type { EmployeeGroup } from '@/types/database'
+import { updateEmployee } from './actions'
+import type { Employee, EmployeeGroup } from '@/types/database'
+
+const DEPARTMENTS = [
+  'Engineering', 'Finance', 'HR', 'Operations',
+  'Sales', 'Marketing', 'Support', 'Management',
+]
 
 interface Props {
+  employee: Employee
   groups: EmployeeGroup[]
   viewSensitive: boolean
-  defaultEmployeeNumber?: string
   onClose: () => void
 }
 
-export default function AddEmployeeModal({ groups, viewSensitive, defaultEmployeeNumber, onClose }: Props) {
+export default function EditEmployeeModal({ employee, groups, viewSensitive, onClose }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -22,7 +27,7 @@ export default function AddEmployeeModal({ groups, viewSensitive, defaultEmploye
     setError(null)
     const formData = new FormData(e.currentTarget)
     startTransition(async () => {
-      const result = await addEmployee(formData)
+      const result = await updateEmployee(employee.id, formData)
       if (result.error) {
         setError(result.error)
       } else {
@@ -41,7 +46,7 @@ export default function AddEmployeeModal({ groups, viewSensitive, defaultEmploye
       <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 sticky top-0 bg-white rounded-t-2xl">
-          <h2 className="text-lg font-semibold text-gray-900">Add Employee</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Edit Employee</h2>
           <button
             type="button"
             onClick={onClose}
@@ -74,8 +79,7 @@ export default function AddEmployeeModal({ groups, viewSensitive, defaultEmploye
                   name="employee_number"
                   type="text"
                   required
-                  defaultValue={defaultEmployeeNumber}
-                  placeholder="EMP-001"
+                  defaultValue={employee.employee_number}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -87,7 +91,7 @@ export default function AddEmployeeModal({ groups, viewSensitive, defaultEmploye
                   name="full_name"
                   type="text"
                   required
-                  placeholder="Jane Doe"
+                  defaultValue={employee.full_name}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -99,7 +103,7 @@ export default function AddEmployeeModal({ groups, viewSensitive, defaultEmploye
                   name="email"
                   type="email"
                   required
-                  placeholder="jane@company.com"
+                  defaultValue={employee.email}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -108,6 +112,7 @@ export default function AddEmployeeModal({ groups, viewSensitive, defaultEmploye
                 <input
                   name="hire_date"
                   type="date"
+                  defaultValue={employee.hire_date ?? ''}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -133,6 +138,7 @@ export default function AddEmployeeModal({ groups, viewSensitive, defaultEmploye
                 <input
                   name="position"
                   type="text"
+                  defaultValue={employee.position ?? ''}
                   placeholder="Software Engineer"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
@@ -141,30 +147,25 @@ export default function AddEmployeeModal({ groups, viewSensitive, defaultEmploye
                 <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
                 <select
                   name="department"
+                  defaultValue={employee.department ?? ''}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                 >
                   <option value="">No Department</option>
-                  <option value="Engineering">Engineering</option>
-                  <option value="Finance">Finance</option>
-                  <option value="HR">HR</option>
-                  <option value="Operations">Operations</option>
-                  <option value="Sales">Sales</option>
-                  <option value="Marketing">Marketing</option>
-                  <option value="Support">Support</option>
-                  <option value="Management">Management</option>
+                  {DEPARTMENTS.map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Group</label>
                 <select
                   name="group_id"
+                  defaultValue={employee.group_id ?? ''}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                 >
                   <option value="">No Group</option>
                   {groups.map(g => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                    </option>
+                    <option key={g.id} value={g.id}>{g.name}</option>
                   ))}
                 </select>
               </div>
@@ -172,6 +173,7 @@ export default function AddEmployeeModal({ groups, viewSensitive, defaultEmploye
                 <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                 <select
                   name="status"
+                  defaultValue={employee.status}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                 >
                   <option value="active">Active</option>
@@ -182,7 +184,7 @@ export default function AddEmployeeModal({ groups, viewSensitive, defaultEmploye
             </div>
           </section>
 
-          {/* Compensation — only for roles that can view sensitive data */}
+          {/* Compensation */}
           {viewSensitive && (
             <section>
               <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
@@ -198,18 +200,20 @@ export default function AddEmployeeModal({ groups, viewSensitive, defaultEmploye
                     type="number"
                     min="0"
                     step="1"
+                    defaultValue={employee.salary ?? ''}
                     placeholder="75000"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
                 <div className="flex items-center gap-3 pt-7">
                   <input
-                    id="is_sensitive"
+                    id="edit_is_sensitive"
                     name="is_sensitive"
                     type="checkbox"
+                    defaultChecked={employee.is_sensitive}
                     className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                   />
-                  <label htmlFor="is_sensitive" className="text-sm text-gray-700">
+                  <label htmlFor="edit_is_sensitive" className="text-sm text-gray-700">
                     Mark as sensitive
                   </label>
                 </div>
@@ -231,7 +235,7 @@ export default function AddEmployeeModal({ groups, viewSensitive, defaultEmploye
               disabled={pending}
               className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
-              {pending ? 'Adding…' : 'Add Employee'}
+              {pending ? 'Saving…' : 'Save Changes'}
             </button>
           </div>
         </form>

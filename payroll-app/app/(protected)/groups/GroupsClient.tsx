@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { addGroup, updateGroup, deleteGroup } from './actions'
 import type { EmployeeGroup } from '@/types/database'
 
@@ -204,8 +205,15 @@ export default function GroupsClient({ groups, countByGroup, canManage }: Props)
             return (
               <div
                 key={group.id}
-                className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col gap-3"
+                className="relative bg-white border border-gray-200 rounded-xl p-5 flex flex-col gap-3 hover:border-indigo-300 hover:shadow-sm transition"
               >
+                {/* Clickable overlay — navigates to group detail */}
+                <Link
+                  href={`/groups/${group.id}`}
+                  className="absolute inset-0 rounded-xl"
+                  aria-label={`View ${group.name}`}
+                />
+
                 <div className="flex items-start justify-between gap-3">
                   {/* Icon + name + count */}
                   <div className="flex items-center gap-3 min-w-0">
@@ -234,9 +242,9 @@ export default function GroupsClient({ groups, countByGroup, canManage }: Props)
                     </div>
                   </div>
 
-                  {/* Actions */}
+                  {/* Actions — sit above the Link overlay via relative z-index */}
                   {canManage && (
-                    <div className="flex items-center gap-1 flex-shrink-0">
+                    <div className="relative z-10 flex items-center gap-1 flex-shrink-0">
                       <button
                         onClick={() => setEditingGroup(group)}
                         disabled={isDeleting}

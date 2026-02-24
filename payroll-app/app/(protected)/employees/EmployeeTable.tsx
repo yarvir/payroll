@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { canManageEmployees } from '@/lib/roles'
+import EditEmployeeModal from './EditEmployeeModal'
 import type { Employee, EmployeeGroup, UserRole } from '@/types/database'
 
 interface EmployeeWithGroup extends Employee {
@@ -30,11 +32,15 @@ export default function EmployeeTable({
   employees,
   groups,
   viewSensitive,
+  userRole,
 }: EmployeeTableProps) {
   const [search, setSearch] = useState('')
   const [selectedGroup, setSelectedGroup] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [showSensitiveOnly, setShowSensitiveOnly] = useState(false)
+  const [editingEmployee, setEditingEmployee] = useState<EmployeeWithGroup | null>(null)
+
+  const canManage = canManageEmployees(userRole)
 
   const filtered = useMemo(() => {
     return employees.filter(emp => {
@@ -176,12 +182,24 @@ export default function EmployeeTable({
                     key={emp.id}
                     employee={emp}
                     viewSensitive={viewSensitive}
+                    canManage={canManage}
+                    onEdit={setEditingEmployee}
                   />
                 ))}
               </div>
             </div>
           ))}
         </div>
+      )}
+
+      {/* Edit modal */}
+      {editingEmployee && (
+        <EditEmployeeModal
+          employee={editingEmployee}
+          groups={groups}
+          viewSensitive={viewSensitive}
+          onClose={() => setEditingEmployee(null)}
+        />
       )}
     </div>
   )
@@ -190,12 +208,16 @@ export default function EmployeeTable({
 function EmployeeRow({
   employee: emp,
   viewSensitive,
+  canManage,
+  onEdit,
 }: {
   employee: EmployeeWithGroup
   viewSensitive: boolean
+  canManage: boolean
+  onEdit: (emp: EmployeeWithGroup) => void
 }) {
   return (
-    <div className="px-5 py-4 flex items-center gap-4 hover:bg-gray-50 transition">
+    <div className="group px-5 py-4 flex items-center gap-4 hover:bg-gray-50 transition">
       {/* Avatar */}
       <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold text-sm flex-shrink-0">
         {emp.full_name.charAt(0).toUpperCase()}
@@ -244,6 +266,20 @@ function EmployeeRow({
       <span className={`text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0 ${STATUS_STYLES[emp.status]}`}>
         {STATUS_LABELS[emp.status]}
       </span>
+
+      {/* Edit button — visible on row hover for managers */}
+      {canManage && (
+        <button
+          onClick={() => onEdit(emp)}
+          title="Edit employee"
+          className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition opacity-0 group-hover:opacity-100 flex-shrink-0"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+        </button>
+      )}
     </div>
   )
 }
