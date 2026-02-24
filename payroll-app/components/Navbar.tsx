@@ -10,7 +10,7 @@ interface NavbarProps {
   profile: Profile
 }
 
-const navLinks = [
+const baseNavLinks = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/employees', label: 'Employees' },
   { href: '/groups', label: 'Groups' },
@@ -18,6 +18,10 @@ const navLinks = [
 
 export default function Navbar({ profile }: NavbarProps) {
   const pathname = usePathname()
+  const navLinks = [
+    ...baseNavLinks,
+    ...(profile.role === 'owner' ? [{ href: '/users', label: 'Users' }] : []),
+  ]
 
   return (
     <nav className="bg-white border-b border-gray-200">
