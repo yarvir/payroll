@@ -4,11 +4,25 @@ import { createClient } from '@/lib/supabase/server'
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
+  const token_hash = searchParams.get('token_hash')
+  const type = searchParams.get('type')
   const next = searchParams.get('next') ?? '/dashboard'
 
+  const supabase = createClient()
+
   if (code) {
-    const supabase = createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
+    if (!error) {
+      return NextResponse.redirect(`${origin}${next}`)
+    }
+  }
+
+  if (token_hash && type) {
+    // Used by invite and magic-link emails (PKCE flow)
+    const { error } = await supabase.auth.verifyOtp({
+      token_hash,
+      type: type as Parameters<typeof supabase.auth.verifyOtp>[0]['type'],
+    })
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`)
     }
