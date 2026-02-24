@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import Navbar from '@/components/Navbar'
 import type { Profile } from '@/types/database'
 
@@ -17,16 +18,28 @@ export default async function ProtectedLayout({
     redirect('/login')
   }
 
-  const { data: profileData } = await supabase
+  // Use the service-role admin client to bypass RLS for the profile lookup.
+  // The "Owners can read all profiles" RLS policy contains a self-referencing
+  // subquery on `profiles` that causes infinite recursion in PostgreSQL,
+  // which makes the query fail (error is PGRST204 / infinite recursion).
+  // The user has already been verified above via auth.getUser(), so using the
+  // admin client here is safe.
+  const adminSupabase = createAdminClient()
+  const { data: profileData, error: profileError } = await adminSupabase
     .from('profiles')
     .select('*')
     .eq('id', user.id)
     .single()
 
+  console.log(
+    '[Auth] Profile query for user', user.id,
+    '| found:', !!profileData,
+    '| error:', profileError ? `${profileError.message} (code: ${profileError.code})` : 'none'
+  )
+
   if (!profileData) {
     // Sign out first so the middleware won't redirect the user back from /login
     // to /dashboard, which would create an infinite loop.
-    console.error('[Auth] No profile row found for authenticated user:', user.id, user.email)
     await supabase.auth.signOut()
     redirect(
       '/login?error=' +
