@@ -60,7 +60,7 @@ export async function inviteUser(formData: FormData): Promise<{ error?: string }
     return { error: profileError.message }
   }
 
-  if (role === 'employee' && employee_id) {
+  if (employee_id) {
     await admin
       .from('employees')
       .update({ profile_id: userId })
@@ -106,7 +106,7 @@ export async function updateUser(
   }
 
   // Link new employee
-  if (role === 'employee' && employee_id) {
+  if (employee_id) {
     await admin
       .from('employees')
       .update({ profile_id: userId })
