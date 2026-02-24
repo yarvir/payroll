@@ -13,6 +13,7 @@ interface NavbarProps {
 const navLinks = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/employees', label: 'Employees' },
+  { href: '/groups', label: 'Groups' },
 ]
 
 export default function Navbar({ profile }: NavbarProps) {

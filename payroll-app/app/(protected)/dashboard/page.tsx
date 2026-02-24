@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { ROLE_LABELS, ROLE_COLORS } from '@/lib/roles'
 import Link from 'next/link'
 import type { Profile } from '@/types/database'
@@ -9,7 +10,9 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const { data: profileData } = await supabase
+  // Admin client bypasses recursive RLS on profiles
+  const admin = createAdminClient()
+  const { data: profileData } = await admin
     .from('profiles')
     .select('*')
     .eq('id', user!.id)
@@ -80,7 +83,7 @@ export default async function DashboardPage() {
             </svg>
           }
           color="blue"
-          href="/employees"
+          href="/groups"
         />
       </div>
 
