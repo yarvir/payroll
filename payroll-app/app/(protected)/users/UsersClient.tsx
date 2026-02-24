@@ -45,13 +45,17 @@ export default function UsersClient({ userRows, employees }: Props) {
   function handleToggleBan(row: UserRow) {
     setActionError(null)
     startTransition(async () => {
-      const result = row.banned
-        ? await reactivateUser(row.id)
-        : await deactivateUser(row.id)
-      if (result.error) {
-        setActionError(result.error)
-      } else {
-        router.refresh()
+      try {
+        const result = row.banned
+          ? await reactivateUser(row.id)
+          : await deactivateUser(row.id)
+        if (result.error) {
+          setActionError(result.error)
+        } else {
+          router.refresh()
+        }
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : 'An unexpected error occurred.')
       }
     })
   }

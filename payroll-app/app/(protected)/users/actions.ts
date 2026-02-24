@@ -39,7 +39,7 @@ export async function inviteUser(formData: FormData): Promise<{ error?: string }
   const redirectTo = `${appUrl}/auth/callback?next=/auth/set-password`
 
   const { data: inviteData, error: inviteError } =
-    await admin.auth.admin.inviteUserByEmail(email, { redirectTo })
+    await admin.auth.admin.inviteUserByEmail(email, { redirectTo, data: { role } })
 
   if (inviteError) {
     if (inviteError.message.toLowerCase().includes('already registered')) {
@@ -119,27 +119,35 @@ export async function updateUser(
 }
 
 export async function deactivateUser(userId: string): Promise<{ error?: string }> {
-  const admin = await requireOwner()
-  if (!admin) return { error: 'Only owners can deactivate users.' }
+  try {
+    const admin = await requireOwner()
+    if (!admin) return { error: 'Only owners can deactivate users.' }
 
-  const { error } = await admin.auth.admin.updateUserById(userId, {
-    ban_duration: '87600h',
-  })
-  if (error) return { error: error.message }
+    const { error } = await admin.auth.admin.updateUserById(userId, {
+      ban_duration: '87600h',
+    })
+    if (error) return { error: error.message }
 
-  revalidatePath('/users')
-  return {}
+    revalidatePath('/users')
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'An unexpected error occurred.' }
+  }
 }
 
 export async function reactivateUser(userId: string): Promise<{ error?: string }> {
-  const admin = await requireOwner()
-  if (!admin) return { error: 'Only owners can reactivate users.' }
+  try {
+    const admin = await requireOwner()
+    if (!admin) return { error: 'Only owners can reactivate users.' }
 
-  const { error } = await admin.auth.admin.updateUserById(userId, {
-    ban_duration: 'none',
-  })
-  if (error) return { error: error.message }
+    const { error } = await admin.auth.admin.updateUserById(userId, {
+      ban_duration: 'none',
+    })
+    if (error) return { error: error.message }
 
-  revalidatePath('/users')
-  return {}
+    revalidatePath('/users')
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'An unexpected error occurred.' }
+  }
 }
