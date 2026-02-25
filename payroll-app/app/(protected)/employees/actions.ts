@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { canManageEmployees } from '@/lib/roles'
+import { checkPermission } from '@/lib/permissions'
 import type { Profile, UserRole } from '@/types/database'
 
 async function requireManagePermission() {
@@ -21,7 +21,9 @@ async function requireManagePermission() {
     .single()
   const profile = profileData as Profile | null
 
-  if (!profile || !canManageEmployees(profile.role as UserRole)) return null
+  if (!profile) return null
+  const allowed = await checkPermission(profile.role as UserRole, 'manage_employees')
+  if (!allowed) return null
   return admin
 }
 
@@ -40,9 +42,6 @@ export async function addEmployee(formData: FormData): Promise<{ error?: string 
       | 'active'
       | 'inactive'
       | 'on_leave'
-  const salary_raw = formData.get('salary') as string | null
-  const salary = salary_raw && salary_raw.trim() !== '' ? parseFloat(salary_raw) : null
-  const is_sensitive = formData.get('is_sensitive') === 'on'
   const hire_date = (formData.get('hire_date') as string | null) || null
 
   if (!employee_number || !full_name || !email) {
@@ -57,8 +56,6 @@ export async function addEmployee(formData: FormData): Promise<{ error?: string 
     department,
     group_id,
     status,
-    salary,
-    is_sensitive,
     hire_date,
   })
 
@@ -91,9 +88,6 @@ export async function updateEmployee(
       | 'active'
       | 'inactive'
       | 'on_leave'
-  const salary_raw = formData.get('salary') as string | null
-  const salary = salary_raw && salary_raw.trim() !== '' ? parseFloat(salary_raw) : null
-  const is_sensitive = formData.get('is_sensitive') === 'on'
   const hire_date = (formData.get('hire_date') as string | null) || null
 
   if (!employee_number || !full_name || !email) {
@@ -110,8 +104,6 @@ export async function updateEmployee(
       department,
       group_id,
       status,
-      salary,
-      is_sensitive,
       hire_date,
     })
     .eq('id', id)

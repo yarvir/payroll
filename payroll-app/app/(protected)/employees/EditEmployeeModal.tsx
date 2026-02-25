@@ -13,11 +13,10 @@ const DEPARTMENTS = [
 interface Props {
   employee: Employee
   groups: EmployeeGroup[]
-  viewSensitive: boolean
   onClose: () => void
 }
 
-export default function EditEmployeeModal({ employee, groups, viewSensitive, onClose }: Props) {
+export default function EditEmployeeModal({ employee, groups, onClose }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -183,43 +182,6 @@ export default function EditEmployeeModal({ employee, groups, viewSensitive, onC
               </div>
             </div>
           </section>
-
-          {/* Compensation */}
-          {viewSensitive && (
-            <section>
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                Compensation
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Annual Salary (USD)
-                  </label>
-                  <input
-                    name="salary"
-                    type="number"
-                    min="0"
-                    step="1"
-                    defaultValue={employee.salary ?? ''}
-                    placeholder="75000"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-                <div className="flex items-center gap-3 pt-7">
-                  <input
-                    id="edit_is_sensitive"
-                    name="is_sensitive"
-                    type="checkbox"
-                    defaultChecked={employee.is_sensitive}
-                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <label htmlFor="edit_is_sensitive" className="text-sm text-gray-700">
-                    Mark as sensitive
-                  </label>
-                </div>
-              </div>
-            </section>
-          )}
 
           {/* Footer */}
           <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">

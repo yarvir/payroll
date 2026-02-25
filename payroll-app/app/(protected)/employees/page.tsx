@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { canViewSensitive, canViewSalary, canManageEmployees } from '@/lib/roles'
+import { getUserPermissions } from '@/lib/permissions'
 import EmployeeTable from './EmployeeTable'
 import AddEmployeeButton from './AddEmployeeButton'
 import type { Employee, EmployeeGroup, Profile, UserRole } from '@/types/database'
@@ -21,9 +21,9 @@ export default async function EmployeesPage() {
 
   const profile = profileData as Profile | null
   const userRole = (profile?.role ?? 'employee') as UserRole
-  const viewSensitive = canViewSensitive(userRole)   // owner, hr, accountant
-  const viewSalary = canViewSalary(userRole)           // owner, hr only
-  const manageEmployees = canManageEmployees(userRole) // owner, hr
+  const perms = await getUserPermissions(userRole)
+  const viewSensitive = perms.view_sensitive_employees
+  const manageEmployees = perms.manage_employees
 
   const { data: groups } = await supabase.from('employee_groups').select('*').order('name')
 
@@ -45,7 +45,6 @@ export default async function EmployeesPage() {
         {manageEmployees && (
           <AddEmployeeButton
             groups={(groups ?? []) as EmployeeGroup[]}
-            viewSensitive={viewSalary}
           />
         )}
       </div>
@@ -58,7 +57,6 @@ export default async function EmployeesPage() {
         }
         groups={(groups ?? []) as EmployeeGroup[]}
         viewSensitive={viewSensitive}
-        viewSalary={viewSalary}
         userRole={userRole}
       />
     </div>
