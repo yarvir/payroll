@@ -14,21 +14,47 @@ export const ROLE_COLORS: Record<UserRole, string> = {
   employee: 'bg-gray-100 text-gray-800',
 }
 
-/** Roles that can see salary / sensitive data */
-export const SENSITIVE_ROLES: UserRole[] = ['owner', 'accountant']
+/**
+ * Roles that can see the full employee list including sensitive employees
+ * and the "Sensitive" badge. Owner, HR, and Accountant all see everyone.
+ */
+export const SENSITIVE_ROLES: UserRole[] = ['owner', 'hr', 'accountant']
 
 export function canViewSensitive(role: UserRole): boolean {
   return SENSITIVE_ROLES.includes(role)
 }
 
-/** Roles that can manage employees (create, edit, deactivate) */
+/**
+ * Roles that can see the salary column at all.
+ * Owner and HR see salary; Accountant never sees the salary column.
+ */
+export const VIEW_SALARY_ROLES: UserRole[] = ['owner', 'hr']
+
+export function canViewSalary(role: UserRole): boolean {
+  return VIEW_SALARY_ROLES.includes(role)
+}
+
+/**
+ * Whether this role can see the salary of a sensitive employee.
+ * Only Owner sees sensitive-employee salaries; HR sees "—" for those rows.
+ */
+export function canViewSensitiveSalary(role: UserRole): boolean {
+  return role === 'owner'
+}
+
+/** Roles that can add and edit employees. */
 export const MANAGE_EMPLOYEE_ROLES: UserRole[] = ['owner', 'hr']
 
 export function canManageEmployees(role: UserRole): boolean {
   return MANAGE_EMPLOYEE_ROLES.includes(role)
 }
 
-/** Only owner can manage user roles */
+/** Only Owner can delete employees. */
+export function canDeleteEmployees(role: UserRole): boolean {
+  return role === 'owner'
+}
+
+/** Only Owner can manage user accounts. */
 export function canManageRoles(role: UserRole): boolean {
   return role === 'owner'
 }
