@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useRef, useEffect } from 'react'
 import { logout } from '@/app/login/actions'
-import { ROLE_LABELS, ROLE_COLORS } from '@/lib/roles'
+import { getRoleLabel, getRoleColor } from '@/lib/roles'
 import type { Profile } from '@/types/database'
 
 interface NavbarProps {
@@ -18,6 +18,7 @@ const baseNavLinks = [
 ]
 
 const settingsLinks = [
+  { href: '/settings/roles',       label: 'Roles' },
   { href: '/settings/permissions', label: 'Permissions' },
 ]
 
@@ -118,8 +119,8 @@ export default function Navbar({ profile }: NavbarProps) {
 
           {/* User info + logout */}
           <div className="flex items-center gap-3">
-            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${ROLE_COLORS[profile.role]}`}>
-              {ROLE_LABELS[profile.role]}
+            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${getRoleColor(profile.role)}`}>
+              {getRoleLabel(profile.role)}
             </span>
             <span className="text-sm text-gray-700 hidden sm:block">
               {profile.full_name ?? profile.email}

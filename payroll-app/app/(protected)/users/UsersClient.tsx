@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import { deactivateUser, reactivateUser, deleteUser } from './actions'
 import InviteUserModal from './InviteUserModal'
 import EditUserModal from './EditUserModal'
-import { ROLE_LABELS, ROLE_COLORS } from '@/lib/roles'
-import type { Employee, Profile } from '@/types/database'
+import { getRoleLabel, getRoleColor } from '@/lib/roles'
+import type { Employee, Profile, Role } from '@/types/database'
 
 export type UserRow = {
   id: string
@@ -24,6 +24,7 @@ export type UserRow = {
 interface Props {
   userRows: UserRow[]
   employees: Pick<Employee, 'id' | 'full_name' | 'employee_number' | 'profile_id'>[]
+  roles: Pick<Role, 'id' | 'name'>[]
 }
 
 function formatDate(iso: string | null) {
@@ -35,7 +36,7 @@ function formatDate(iso: string | null) {
   })
 }
 
-export default function UsersClient({ userRows, employees }: Props) {
+export default function UsersClient({ userRows, employees, roles }: Props) {
   const router = useRouter()
   const [inviteOpen, setInviteOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<UserRow | null>(null)
@@ -156,9 +157,9 @@ export default function UsersClient({ userRows, employees }: Props) {
                   <td className="px-4 py-3">
                     {row.profile ? (
                       <span
-                        className={`text-xs font-medium px-2.5 py-1 rounded-full ${ROLE_COLORS[row.profile.role]}`}
+                        className={`text-xs font-medium px-2.5 py-1 rounded-full ${getRoleColor(row.profile.role)}`}
                       >
-                        {ROLE_LABELS[row.profile.role]}
+                        {roles.find(r => r.id === row.profile!.role)?.name ?? getRoleLabel(row.profile.role)}
                       </span>
                     ) : (
                       <span className="text-xs text-gray-400 italic">No profile</span>
@@ -250,6 +251,7 @@ export default function UsersClient({ userRows, employees }: Props) {
       {inviteOpen && (
         <InviteUserModal
           employees={employees}
+          roles={roles}
           onClose={() => setInviteOpen(false)}
         />
       )}
@@ -257,6 +259,7 @@ export default function UsersClient({ userRows, employees }: Props) {
         <EditUserModal
           user={editTarget}
           employees={employees}
+          roles={roles}
           onClose={() => setEditTarget(null)}
         />
       )}

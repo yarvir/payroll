@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import UsersClient from './UsersClient'
-import type { Employee, Profile } from '@/types/database'
+import type { Employee, Profile, Role } from '@/types/database'
 
 export default async function UsersPage() {
   const supabase = createClient()
@@ -20,9 +20,13 @@ export default async function UsersPage() {
   const profile = profileData as Profile | null
   if (!profile || profile.role !== 'owner') redirect('/dashboard')
 
-  // Fetch all auth users (up to 1000 for a payroll app)
-  const { data: authData } = await admin.auth.admin.listUsers({ perPage: 1000 })
+  // Fetch all auth users (up to 1000 for a payroll app) and roles in parallel
+  const [{ data: authData }, { data: rolesData }] = await Promise.all([
+    admin.auth.admin.listUsers({ perPage: 1000 }),
+    admin.from('roles').select('id, name').order('is_default', { ascending: false }).order('name'),
+  ])
   const authUsers = authData?.users ?? []
+  const roles = (rolesData ?? []) as Pick<Role, 'id' | 'name'>[]
 
   // Fetch all profiles and employees for joining
   const { data: profilesData } = await admin.from('profiles').select('*')
@@ -60,6 +64,7 @@ export default async function UsersPage() {
     <UsersClient
       userRows={userRows}
       employees={employees ?? []}
+      roles={roles}
     />
   )
 }
