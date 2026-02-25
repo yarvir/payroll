@@ -52,8 +52,9 @@ export const getAllPermissions = cache(
     const admin = createAdminClient()
     const { data } = await admin.from('role_permissions').select('*')
 
+    type RolePermissionRow = { feature: string; role: string; enabled: boolean }
     const result: Record<string, Record<string, boolean>> = {}
-    for (const row of data ?? []) {
+    for (const row of (data as RolePermissionRow[]) ?? []) {
       if (!result[row.feature]) result[row.feature] = {}
       result[row.feature][row.role] = row.enabled
     }
