@@ -337,7 +337,7 @@ export default function EmployeeTable({
         <EditEmployeeModal
           employee={editingEmployee}
           groups={groups}
-          viewSensitive={viewSalary}
+          viewSensitive={viewSalary && (!editingEmployee.is_sensitive || canSeeSensitiveSalary)}
           onClose={() => setEditingEmployee(null)}
         />
       )}
