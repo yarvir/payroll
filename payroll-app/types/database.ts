@@ -99,7 +99,6 @@ export type Database = {
         }
         Relationships: []
       }
-    }
       role_permissions: {
         Row: {
           feature: string
