@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkPermission } from '@/lib/permissions'
-import type { Profile } from '@/types/database'
+import type { Profile, PaymentMethodInput } from '@/types/database'
 
 async function requireManagePermission() {
   const supabase = createClient()
@@ -27,7 +27,29 @@ async function requireManagePermission() {
   return admin
 }
 
-export async function addEmployee(formData: FormData): Promise<{ error?: string }> {
+async function savePaymentMethods(
+  admin: ReturnType<typeof createAdminClient>,
+  employeeId: string,
+  paymentMethods: PaymentMethodInput[],
+) {
+  // Delete existing and re-insert (upsert approach)
+  await admin.from('employee_payment_methods').delete().eq('employee_id', employeeId)
+
+  if (paymentMethods.length === 0) return null
+
+  const { error } = await admin.from('employee_payment_methods').insert(
+    paymentMethods.map((m) => ({
+      employee_id: employeeId,
+      ...m,
+    })),
+  )
+  return error
+}
+
+export async function addEmployee(
+  formData: FormData,
+  paymentMethods: PaymentMethodInput[] = [],
+): Promise<{ error?: string }> {
   const admin = await requireManagePermission()
   if (!admin) return { error: 'You do not have permission to add employees.' }
 
@@ -48,22 +70,31 @@ export async function addEmployee(formData: FormData): Promise<{ error?: string 
     return { error: 'Employee number, full name, and email are required.' }
   }
 
-  const { error } = await admin.from('employees').insert({
-    employee_number,
-    full_name,
-    email,
-    position,
-    department,
-    group_id,
-    status,
-    hire_date,
-  })
+  const { data: inserted, error } = await admin
+    .from('employees')
+    .insert({
+      employee_number,
+      full_name,
+      email,
+      position,
+      department,
+      group_id,
+      status,
+      hire_date,
+    })
+    .select('id')
+    .single()
 
   if (error) {
     if (error.code === '23505') {
       return { error: 'An employee with this employee number or email already exists.' }
     }
     return { error: error.message }
+  }
+
+  if (paymentMethods.length > 0) {
+    const pmError = await savePaymentMethods(admin, inserted.id, paymentMethods)
+    if (pmError) return { error: pmError.message }
   }
 
   revalidatePath('/employees')
@@ -73,6 +104,7 @@ export async function addEmployee(formData: FormData): Promise<{ error?: string 
 export async function updateEmployee(
   id: string,
   formData: FormData,
+  paymentMethods: PaymentMethodInput[] = [],
 ): Promise<{ error?: string }> {
   const admin = await requireManagePermission()
   if (!admin) return { error: 'You do not have permission to edit employees.' }
@@ -115,9 +147,34 @@ export async function updateEmployee(
     return { error: error.message }
   }
 
+  const pmError = await savePaymentMethods(admin, id, paymentMethods)
+  if (pmError) return { error: pmError.message }
+
   revalidatePath('/employees')
   revalidatePath('/groups')
   return {}
+}
+
+export async function getPaymentMethods(employeeId: string): Promise<PaymentMethodInput[]> {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('employee_payment_methods')
+    .select('*')
+    .eq('employee_id', employeeId)
+    .order('method_type')
+
+  if (!data) return []
+
+  return data.map((row) => ({
+    method_type: row.method_type,
+    percentage: row.percentage,
+    deel_account_details: row.deel_account_details,
+    beneficiary_name: row.beneficiary_name,
+    account_number: row.account_number,
+    branch: row.branch,
+    swift_code: row.swift_code,
+    bank_name: row.bank_name,
+  }))
 }
 
 export async function getNextEmployeeNumber(): Promise<string> {

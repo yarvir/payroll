@@ -1,9 +1,10 @@
 'use client'
 
-import { useTransition, useState } from 'react'
+import { useTransition, useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { updateEmployee } from './actions'
-import type { Employee, EmployeeGroup } from '@/types/database'
+import { updateEmployee, getPaymentMethods } from './actions'
+import PaymentMethodsSection, { type PaymentMethodsHandle } from './PaymentMethodsSection'
+import type { Employee, EmployeeGroup, PaymentMethodInput } from '@/types/database'
 
 const DEPARTMENTS = [
   'Engineering', 'Finance', 'HR', 'Operations',
@@ -20,13 +21,29 @@ export default function EditEmployeeModal({ employee, groups, onClose }: Props) 
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const paymentRef = useRef<PaymentMethodsHandle>(null)
+  const [initialPaymentMethods, setInitialPaymentMethods] = useState<PaymentMethodInput[] | undefined>(undefined)
+  const [paymentLoading, setPaymentLoading] = useState(true)
+
+  useEffect(() => {
+    getPaymentMethods(employee.id).then((data) => {
+      setInitialPaymentMethods(data)
+      setPaymentLoading(false)
+    })
+  }, [employee.id])
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
+
+    const validationError = paymentRef.current?.validate() ?? null
+    if (validationError) return
+
     const formData = new FormData(e.currentTarget)
+    const paymentMethods = paymentRef.current?.getPaymentMethods() ?? []
+
     startTransition(async () => {
-      const result = await updateEmployee(employee.id, formData)
+      const result = await updateEmployee(employee.id, formData, paymentMethods)
       if (result.error) {
         setError(result.error)
       } else {
@@ -183,6 +200,24 @@ export default function EditEmployeeModal({ employee, groups, onClose }: Props) 
             </div>
           </section>
 
+          {/* Payment & Bank Details */}
+          {paymentLoading ? (
+            <section>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                Payment &amp; Bank Details
+              </h3>
+              <div className="flex items-center gap-2 text-sm text-gray-400 py-4">
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                Loading payment details…
+              </div>
+            </section>
+          ) : (
+            <PaymentMethodsSection ref={paymentRef} initialData={initialPaymentMethods} />
+          )}
+
           {/* Footer */}
           <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
             <button
@@ -194,7 +229,7 @@ export default function EditEmployeeModal({ employee, groups, onClose }: Props) 
             </button>
             <button
               type="submit"
-              disabled={pending}
+              disabled={pending || paymentLoading}
               className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
               {pending ? 'Saving…' : 'Save Changes'}

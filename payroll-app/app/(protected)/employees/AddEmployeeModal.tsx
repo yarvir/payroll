@@ -1,8 +1,9 @@
 'use client'
 
-import { useTransition, useState } from 'react'
+import { useTransition, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { addEmployee } from './actions'
+import PaymentMethodsSection, { type PaymentMethodsHandle } from './PaymentMethodsSection'
 import type { EmployeeGroup } from '@/types/database'
 
 interface Props {
@@ -15,13 +16,20 @@ export default function AddEmployeeModal({ groups, defaultEmployeeNumber, onClos
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const paymentRef = useRef<PaymentMethodsHandle>(null)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
+
+    const validationError = paymentRef.current?.validate() ?? null
+    if (validationError) return
+
     const formData = new FormData(e.currentTarget)
+    const paymentMethods = paymentRef.current?.getPaymentMethods() ?? []
+
     startTransition(async () => {
-      const result = await addEmployee(formData)
+      const result = await addEmployee(formData, paymentMethods)
       if (result.error) {
         setError(result.error)
       } else {
@@ -180,6 +188,9 @@ export default function AddEmployeeModal({ groups, defaultEmployeeNumber, onClos
               </div>
             </div>
           </section>
+
+          {/* Payment & Bank Details */}
+          <PaymentMethodsSection ref={paymentRef} />
 
           {/* Footer */}
           <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">

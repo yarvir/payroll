@@ -137,6 +137,50 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_payment_methods: {
+        Row: {
+          id: string
+          employee_id: string
+          method_type: 'deel' | 'ccb' | 'non_ccb' | 'hsbc' | 'other'
+          percentage: number
+          deel_account_details: string | null
+          beneficiary_name: string | null
+          account_number: string | null
+          branch: string | null
+          swift_code: string | null
+          bank_name: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          employee_id: string
+          method_type: 'deel' | 'ccb' | 'non_ccb' | 'hsbc' | 'other'
+          percentage: number
+          deel_account_details?: string | null
+          beneficiary_name?: string | null
+          account_number?: string | null
+          branch?: string | null
+          swift_code?: string | null
+          bank_name?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          employee_id?: string
+          method_type?: 'deel' | 'ccb' | 'non_ccb' | 'hsbc' | 'other'
+          percentage?: number
+          deel_account_details?: string | null
+          beneficiary_name?: string | null
+          account_number?: string | null
+          branch?: string | null
+          swift_code?: string | null
+          bank_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -146,9 +190,23 @@ export type Database = {
   }
 }
 
+export type PaymentMethodType = 'deel' | 'ccb' | 'non_ccb' | 'hsbc' | 'other'
+
+export interface PaymentMethodInput {
+  method_type: PaymentMethodType
+  percentage: number
+  deel_account_details?: string | null
+  beneficiary_name?: string | null
+  account_number?: string | null
+  branch?: string | null
+  swift_code?: string | null
+  bank_name?: string | null
+}
+
 export type Profile = Database['public']['Tables']['profiles']['Row']
 export type Employee = Database['public']['Tables']['employees']['Row']
 export type EmployeeGroup = Database['public']['Tables']['employee_groups']['Row']
 export type EmployeeStatus = Employee['status']
 export type Role = Database['public']['Tables']['roles']['Row']
 export type RolePermission = Database['public']['Tables']['role_permissions']['Row']
+export type EmployeePaymentMethod = Database['public']['Tables']['employee_payment_methods']['Row']
