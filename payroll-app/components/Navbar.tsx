@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useState, useRef, useEffect } from 'react'
 import { logout } from '@/app/login/actions'
 import { ROLE_LABELS, ROLE_COLORS } from '@/lib/roles'
 import type { Profile } from '@/types/database'
@@ -16,13 +17,32 @@ const baseNavLinks = [
   { href: '/groups', label: 'Groups' },
 ]
 
+const settingsLinks = [
+  { href: '/settings/permissions', label: 'Permissions' },
+]
+
 export default function Navbar({ profile }: NavbarProps) {
   const pathname = usePathname()
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const settingsRef = useRef<HTMLDivElement>(null)
+
   const navLinks = [
     ...baseNavLinks,
     ...(profile.role === 'owner' ? [{ href: '/users', label: 'Users' }] : []),
-    ...(profile.role === 'owner' ? [{ href: '/settings/permissions', label: 'Settings' }] : []),
   ]
+
+  const isSettingsActive = settingsLinks.some(l => pathname.startsWith(l.href))
+
+  useEffect(() => {
+    if (!settingsOpen) return
+    function onMouseDown(e: MouseEvent) {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setSettingsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    return () => document.removeEventListener('mousedown', onMouseDown)
+  }, [settingsOpen])
 
   return (
     <nav className="bg-white border-b border-gray-200">
@@ -41,7 +61,7 @@ export default function Navbar({ profile }: NavbarProps) {
             </Link>
 
             {/* Nav Links */}
-            <div className="hidden md:flex gap-1">
+            <div className="hidden md:flex gap-1 items-center">
               {navLinks.map(link => (
                 <Link
                   key={link.href}
@@ -55,6 +75,44 @@ export default function Navbar({ profile }: NavbarProps) {
                   {link.label}
                 </Link>
               ))}
+
+              {/* Settings dropdown — Owner only */}
+              {profile.role === 'owner' && (
+                <div ref={settingsRef} className="relative">
+                  <button
+                    onClick={() => setSettingsOpen(v => !v)}
+                    className={`inline-flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition ${
+                      isSettingsActive || settingsOpen
+                        ? 'bg-indigo-50 text-indigo-700'
+                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    }`}
+                  >
+                    Settings
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {settingsOpen && (
+                    <div className="absolute left-0 top-full mt-1.5 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-30 py-1">
+                      {settingsLinks.map(link => (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          onClick={() => setSettingsOpen(false)}
+                          className={`block px-4 py-2 text-sm transition ${
+                            pathname === link.href
+                              ? 'bg-indigo-50 text-indigo-700 font-medium'
+                              : 'text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          {link.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
