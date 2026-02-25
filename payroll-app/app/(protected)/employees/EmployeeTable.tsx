@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { canManageEmployees } from '@/lib/roles'
 import EditEmployeeModal from './EditEmployeeModal'
-import type { Employee, EmployeeGroup, UserRole } from '@/types/database'
+import type { Employee, EmployeeGroup } from '@/types/database'
 
 // ── Column definitions ────────────────────────────────────────────────────────
 
@@ -46,7 +46,7 @@ interface EmployeeTableProps {
   employees: EmployeeWithGroup[]
   groups: EmployeeGroup[]
   viewSensitive: boolean  // can see sensitive employee records + badge (owner, hr, accountant)
-  userRole: UserRole
+  userRole: string
 }
 
 const STATUS_STYLES: Record<Employee['status'], string> = {

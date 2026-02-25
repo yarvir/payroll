@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getUserPermissions } from '@/lib/permissions'
 import EmployeeTable from './EmployeeTable'
 import AddEmployeeButton from './AddEmployeeButton'
-import type { Employee, EmployeeGroup, Profile, UserRole } from '@/types/database'
+import type { Employee, EmployeeGroup, Profile } from '@/types/database'
 
 export default async function EmployeesPage() {
   const supabase = createClient()
@@ -20,7 +20,7 @@ export default async function EmployeesPage() {
     .single()
 
   const profile = profileData as Profile | null
-  const userRole = (profile?.role ?? 'employee') as UserRole
+  const userRole = profile?.role ?? 'employee'
   const perms = await getUserPermissions(userRole)
   const viewSensitive = perms.view_sensitive_employees
   const manageEmployees = perms.manage_employees

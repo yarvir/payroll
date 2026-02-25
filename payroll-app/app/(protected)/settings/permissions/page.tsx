@@ -22,7 +22,13 @@ export default async function PermissionsPage() {
     redirect('/dashboard')
   }
 
-  const permissions = await getAllPermissions()
+  const [permissions, rolesData] = await Promise.all([
+    getAllPermissions(),
+    admin.from('roles').select('id, name').neq('id', 'owner').order('is_default', { ascending: false }).order('name'),
+  ])
+
+  // All non-owner roles become columns on the permissions table
+  const roles = (rolesData.data ?? []) as { id: string; name: string }[]
 
   return (
     <div>
@@ -33,7 +39,7 @@ export default async function PermissionsPage() {
         </p>
       </div>
 
-      <PermissionsClient permissions={permissions} />
+      <PermissionsClient permissions={permissions} roles={roles} />
     </div>
   )
 }

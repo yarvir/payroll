@@ -1,6 +1,5 @@
 import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
-import type { UserRole } from '@/types/database'
 
 export type PermissionKey =
   | 'view_all_employees'
@@ -67,7 +66,7 @@ export const getAllPermissions = cache(
  * Owner always returns true without hitting the DB.
  */
 export async function checkPermission(
-  role: UserRole,
+  role: string,
   key: PermissionKey
 ): Promise<boolean> {
   if (role === 'owner') return true
@@ -80,7 +79,7 @@ export async function checkPermission(
  * Owner gets all true without hitting the DB.
  */
 export async function getUserPermissions(
-  role: UserRole
+  role: string
 ): Promise<Record<PermissionKey, boolean>> {
   if (role === 'owner') {
     return Object.fromEntries(

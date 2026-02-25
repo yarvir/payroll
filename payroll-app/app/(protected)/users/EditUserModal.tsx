@@ -3,19 +3,17 @@
 import { useTransition, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateUser } from './actions'
-import { ROLE_LABELS } from '@/lib/roles'
-import type { Employee, UserRole } from '@/types/database'
+import type { Employee, Role } from '@/types/database'
 import type { UserRow } from './UsersClient'
-
-const ROLES: UserRole[] = ['owner', 'hr', 'accountant', 'employee']
 
 interface Props {
   user: UserRow
   employees: Pick<Employee, 'id' | 'full_name' | 'employee_number' | 'profile_id'>[]
+  roles: Pick<Role, 'id' | 'name'>[]
   onClose: () => void
 }
 
-export default function EditUserModal({ user, employees, onClose }: Props) {
+export default function EditUserModal({ user, employees, roles, onClose }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -83,9 +81,9 @@ export default function EditUserModal({ user, employees, onClose }: Props) {
               defaultValue={user.profile?.role ?? 'employee'}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
             >
-              {ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_LABELS[r]}
+              {roles.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
                 </option>
               ))}
             </select>

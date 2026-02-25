@@ -8,7 +8,7 @@ export type Database = {
           id: string
           email: string
           full_name: string | null
-          role: UserRole
+          role: string          // text in DB — supports custom roles
           created_at: string
           updated_at: string
         }
@@ -16,7 +16,7 @@ export type Database = {
           id: string
           email: string
           full_name?: string | null
-          role?: UserRole
+          role?: string
           created_at?: string
           updated_at?: string
         }
@@ -24,7 +24,7 @@ export type Database = {
           id?: string
           email?: string
           full_name?: string | null
-          role?: UserRole
+          role?: string
           updated_at?: string
         }
         Relationships: []
@@ -99,20 +99,40 @@ export type Database = {
         }
         Relationships: []
       }
+      roles: {
+        Row: {
+          id: string
+          name: string
+          is_default: boolean
+          created_at: string
+        }
+        Insert: {
+          id: string
+          name: string
+          is_default?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          is_default?: boolean
+        }
+        Relationships: []
+      }
       role_permissions: {
         Row: {
           feature: string
-          role: UserRole
+          role: string            // text in DB — supports custom roles
           enabled: boolean
         }
         Insert: {
           feature: string
-          role: UserRole
+          role: string
           enabled: boolean
         }
         Update: {
           feature?: string
-          role?: UserRole
+          role?: string
           enabled?: boolean
         }
         Relationships: []
@@ -130,4 +150,5 @@ export type Profile = Database['public']['Tables']['profiles']['Row']
 export type Employee = Database['public']['Tables']['employees']['Row']
 export type EmployeeGroup = Database['public']['Tables']['employee_groups']['Row']
 export type EmployeeStatus = Employee['status']
+export type Role = Database['public']['Tables']['roles']['Row']
 export type RolePermission = Database['public']['Tables']['role_permissions']['Row']

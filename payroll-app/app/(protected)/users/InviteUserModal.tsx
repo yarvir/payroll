@@ -3,24 +3,21 @@
 import { useTransition, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { inviteUser } from './actions'
-import { ROLE_LABELS } from '@/lib/roles'
-import type { Employee, UserRole } from '@/types/database'
-
-const ROLES: UserRole[] = ['owner', 'hr', 'accountant', 'employee']
-
+import type { Employee, Role } from '@/types/database'
 
 interface Props {
   employees: Pick<Employee, 'id' | 'full_name' | 'employee_number' | 'profile_id'>[]
+  roles: Pick<Role, 'id' | 'name'>[]
   onClose: () => void
 }
 
-export default function InviteUserModal({ employees, onClose }: Props) {
+export default function InviteUserModal({ employees, roles, onClose }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  // Only show unlinked employees as options
   const availableEmployees = employees.filter((e) => !e.profile_id)
+  const defaultRole = roles.find(r => r.id === 'employee')?.id ?? roles[0]?.id ?? 'employee'
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -85,12 +82,12 @@ export default function InviteUserModal({ employees, onClose }: Props) {
             <select
               name="role"
               required
-              defaultValue="employee"
+              defaultValue={defaultRole}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
             >
-              {ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_LABELS[r]}
+              {roles.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
                 </option>
               ))}
             </select>

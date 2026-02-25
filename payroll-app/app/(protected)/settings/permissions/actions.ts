@@ -3,8 +3,6 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import type { UserRole } from '@/types/database'
-
 async function requireOwner() {
   const supabase = createClient()
   const {
@@ -25,7 +23,7 @@ async function requireOwner() {
 
 export async function updatePermission(
   feature: string,
-  role: UserRole,
+  role: string,
   enabled: boolean
 ): Promise<{ error?: string }> {
   const admin = await requireOwner()
