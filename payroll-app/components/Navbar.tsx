@@ -21,6 +21,7 @@ export default function Navbar({ profile }: NavbarProps) {
   const navLinks = [
     ...baseNavLinks,
     ...(profile.role === 'owner' ? [{ href: '/users', label: 'Users' }] : []),
+    ...(profile.role === 'owner' ? [{ href: '/settings/permissions', label: 'Settings' }] : []),
   ]
 
   return (

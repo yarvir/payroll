@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { canManageEmployees, canViewSensitiveSalary } from '@/lib/roles'
+import { canManageEmployees } from '@/lib/roles'
 import EditEmployeeModal from './EditEmployeeModal'
 import type { Employee, EmployeeGroup, UserRole } from '@/types/database'
 
@@ -15,11 +15,10 @@ type ColumnId =
   | 'department'
   | 'group'
   | 'status'
-  | 'salary'
   | 'birthdate'
   | 'sensitive'
 
-const ALL_COLUMNS: { id: ColumnId; label: string; sensitiveOnly?: boolean }[] = [
+const ALL_COLUMNS: { id: ColumnId; label: string }[] = [
   { id: 'employee_number', label: 'Employee Number' },
   { id: 'full_name',       label: 'Full Name' },
   { id: 'email',           label: 'Email' },
@@ -27,7 +26,6 @@ const ALL_COLUMNS: { id: ColumnId; label: string; sensitiveOnly?: boolean }[] = 
   { id: 'department',      label: 'Department' },
   { id: 'group',           label: 'Group' },
   { id: 'status',          label: 'Status' },
-  { id: 'salary',          label: 'Salary', sensitiveOnly: true },
   { id: 'birthdate',       label: 'Birthdate' },
   { id: 'sensitive',       label: 'Sensitive' },
 ]
@@ -48,7 +46,6 @@ interface EmployeeTableProps {
   employees: EmployeeWithGroup[]
   groups: EmployeeGroup[]
   viewSensitive: boolean  // can see sensitive employee records + badge (owner, hr, accountant)
-  viewSalary: boolean     // can see the salary column at all (owner, hr)
   userRole: UserRole
 }
 
@@ -70,7 +67,6 @@ export default function EmployeeTable({
   employees,
   groups,
   viewSensitive,
-  viewSalary,
   userRole,
 }: EmployeeTableProps) {
   const [search, setSearch] = useState('')
@@ -85,8 +81,6 @@ export default function EmployeeTable({
   const columnsRef = useRef<HTMLDivElement>(null)
 
   const canManage = canManageEmployees(userRole)
-  // Only owner can see salary of sensitive employees; HR sees "—" for those rows
-  const canSeeSensitiveSalary = canViewSensitiveSalary(userRole)
 
   // Load persisted column prefs on mount
   useEffect(() => {
@@ -132,8 +126,7 @@ export default function EmployeeTable({
     })
   }
 
-  // Salary column is sensitiveOnly — only show it to roles that can see salary (owner, hr)
-  const availableColumns = ALL_COLUMNS.filter(c => !c.sensitiveOnly || viewSalary)
+  const availableColumns = ALL_COLUMNS
 
   const filtered = useMemo(() => {
     return employees.filter(emp => {
@@ -319,8 +312,6 @@ export default function EmployeeTable({
                     key={emp.id}
                     employee={emp}
                     viewSensitive={viewSensitive}
-                    viewSalary={viewSalary}
-                    canSeeSensitiveSalary={canSeeSensitiveSalary}
                     canManage={canManage}
                     cols={visibleColumns}
                     onEdit={setEditingEmployee}
@@ -337,7 +328,6 @@ export default function EmployeeTable({
         <EditEmployeeModal
           employee={editingEmployee}
           groups={groups}
-          viewSensitive={viewSalary && (!editingEmployee.is_sensitive || canSeeSensitiveSalary)}
           onClose={() => setEditingEmployee(null)}
         />
       )}
@@ -350,16 +340,12 @@ export default function EmployeeTable({
 function EmployeeRow({
   employee: emp,
   viewSensitive,
-  viewSalary,
-  canSeeSensitiveSalary,
   canManage,
   cols,
   onEdit,
 }: {
   employee: EmployeeWithGroup
   viewSensitive: boolean
-  viewSalary: boolean
-  canSeeSensitiveSalary: boolean
   canManage: boolean
   cols: Set<ColumnId>
   onEdit: (emp: EmployeeWithGroup) => void
@@ -423,24 +409,6 @@ function EmployeeRow({
       {/* Birthdate — no DB column yet */}
       {show('birthdate') && (
         <span className="text-sm text-gray-300 hidden lg:block flex-shrink-0">—</span>
-      )}
-
-      {/* Salary — only rendered when the role can see the salary column (owner, hr).
-          Owner sees all salaries. HR sees "—" for sensitive employees. */}
-      {show('salary') && viewSalary && (
-        <span className="text-sm text-gray-700 font-medium hidden lg:block flex-shrink-0 w-24 text-right">
-          {emp.is_sensitive && !canSeeSensitiveSalary ? (
-            <span className="text-gray-300">—</span>
-          ) : emp.salary != null ? (
-            new Intl.NumberFormat('en-US', {
-              style: 'currency',
-              currency: 'USD',
-              maximumFractionDigits: 0,
-            }).format(emp.salary)
-          ) : (
-            <span className="text-gray-300">—</span>
-          )}
-        </span>
       )}
 
       {/* Status */}

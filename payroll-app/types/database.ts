@@ -100,6 +100,25 @@ export type Database = {
         Relationships: []
       }
     }
+      role_permissions: {
+        Row: {
+          feature: string
+          role: UserRole
+          enabled: boolean
+        }
+        Insert: {
+          feature: string
+          role: UserRole
+          enabled: boolean
+        }
+        Update: {
+          feature?: string
+          role?: UserRole
+          enabled?: boolean
+        }
+        Relationships: []
+      }
+    }
     Views: Record<string, never>
     Functions: Record<string, never>
     Enums: {
@@ -112,3 +131,4 @@ export type Profile = Database['public']['Tables']['profiles']['Row']
 export type Employee = Database['public']['Tables']['employees']['Row']
 export type EmployeeGroup = Database['public']['Tables']['employee_groups']['Row']
 export type EmployeeStatus = Employee['status']
+export type RolePermission = Database['public']['Tables']['role_permissions']['Row']

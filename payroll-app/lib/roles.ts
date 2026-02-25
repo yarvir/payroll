@@ -24,24 +24,6 @@ export function canViewSensitive(role: UserRole): boolean {
   return SENSITIVE_ROLES.includes(role)
 }
 
-/**
- * Roles that can see the salary column at all.
- * Owner and HR see salary; Accountant never sees the salary column.
- */
-export const VIEW_SALARY_ROLES: UserRole[] = ['owner', 'hr']
-
-export function canViewSalary(role: UserRole): boolean {
-  return VIEW_SALARY_ROLES.includes(role)
-}
-
-/**
- * Whether this role can see the salary of a sensitive employee.
- * Only Owner sees sensitive-employee salaries; HR sees "—" for those rows.
- */
-export function canViewSensitiveSalary(role: UserRole): boolean {
-  return role === 'owner'
-}
-
 /** Roles that can add and edit employees. */
 export const MANAGE_EMPLOYEE_ROLES: UserRole[] = ['owner', 'hr']
 

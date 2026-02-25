@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { canManageEmployees } from '@/lib/roles'
+import { checkPermission } from '@/lib/permissions'
 import GroupsClient from './GroupsClient'
 import type { EmployeeGroup, UserRole } from '@/types/database'
 
@@ -19,7 +19,7 @@ export default async function GroupsPage() {
     .single()
 
   const userRole = (profileData?.role ?? 'employee') as UserRole
-  const canManage = canManageEmployees(userRole)
+  const canManage = await checkPermission(userRole, 'manage_groups')
 
   const { data: groups } = await supabase
     .from('employee_groups')

@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { canManageEmployees } from '@/lib/roles'
+import { checkPermission } from '@/lib/permissions'
 import type { Profile, UserRole } from '@/types/database'
 
 async function requireManagePermission() {
@@ -21,7 +21,9 @@ async function requireManagePermission() {
     .single()
   const profile = profileData as Profile | null
 
-  if (!profile || !canManageEmployees(profile.role as UserRole)) return null
+  if (!profile) return null
+  const allowed = await checkPermission(profile.role as UserRole, 'manage_groups')
+  if (!allowed) return null
   return admin
 }
 

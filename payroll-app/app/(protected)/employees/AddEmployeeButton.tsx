@@ -7,10 +7,9 @@ import type { EmployeeGroup } from '@/types/database'
 
 interface Props {
   groups: EmployeeGroup[]
-  viewSensitive: boolean
 }
 
-export default function AddEmployeeButton({ groups, viewSensitive }: Props) {
+export default function AddEmployeeButton({ groups }: Props) {
   const [open, setOpen] = useState(false)
   const [nextNumber, setNextNumber] = useState('')
   const [loading, startTransition] = useTransition()
@@ -39,7 +38,6 @@ export default function AddEmployeeButton({ groups, viewSensitive }: Props) {
       {open && (
         <AddEmployeeModal
           groups={groups}
-          viewSensitive={viewSensitive}
           defaultEmployeeNumber={nextNumber}
           onClose={() => setOpen(false)}
         />
