@@ -197,7 +197,7 @@ export default function EmployeeTable({
 
       // ── Reusable row builders ─────────────────────────────────────────────
 
-      function addTitleRow(ws: ExcelJS.Worksheet, text: string, colCount: number) {
+      const addTitleRow = (ws: ExcelJS.Worksheet, text: string, colCount: number) => {
         const row = ws.addRow([text])
         row.height = 32
         for (let c = 1; c <= colCount; c++) {
@@ -212,7 +212,7 @@ export default function EmployeeTable({
         if (colCount > 1) ws.mergeCells(row.number, 1, row.number, colCount)
       }
 
-      function addSectionRow(ws: ExcelJS.Worksheet, name: string, count: number, colCount: number) {
+      const addSectionRow = (ws: ExcelJS.Worksheet, name: string, count: number, colCount: number) => {
         const label = `${name}   (${count} member${count !== 1 ? 's' : ''})`
         const row = ws.addRow([label])
         row.height = 22
@@ -228,7 +228,7 @@ export default function EmployeeTable({
         if (colCount > 1) ws.mergeCells(row.number, 1, row.number, colCount)
       }
 
-      function addHeaderRow(ws: ExcelJS.Worksheet, labels: string[]) {
+      const addHeaderRow = (ws: ExcelJS.Worksheet, labels: string[]) => {
         const row = ws.addRow(labels)
         row.height = 18
         for (let c = 1; c <= labels.length; c++) {
@@ -240,12 +240,12 @@ export default function EmployeeTable({
         }
       }
 
-      function addDataRow(
+      const addDataRow = (
         ws: ExcelJS.Worksheet,
         values: (string | null)[],
         isAlt: boolean,
         statusColIdx: number,
-      ) {
+      ) => {
         const row = ws.addRow(values)
         row.height = 16
         const bg = isAlt ? ALTBLUE : WHITE
