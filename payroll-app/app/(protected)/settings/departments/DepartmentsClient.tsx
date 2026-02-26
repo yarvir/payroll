@@ -178,14 +178,12 @@ export default function DepartmentsClient({ departments }: Props) {
                       >
                         Rename
                       </button>
-                      {dept.type === 'custom' && (
-                        <button
-                          onClick={() => { setDeleteConfirmId(dept.id); setError(null) }}
-                          className="text-xs font-medium px-2 py-1 rounded text-red-500 hover:text-red-700 hover:bg-red-50 transition"
-                        >
-                          Delete
-                        </button>
-                      )}
+                      <button
+                        onClick={() => { setDeleteConfirmId(dept.id); setError(null) }}
+                        className="text-xs font-medium px-2 py-1 rounded text-red-500 hover:text-red-700 hover:bg-red-50 transition"
+                      >
+                        Delete
+                      </button>
                     </span>
                   )}
                 </td>
@@ -245,7 +243,7 @@ export default function DepartmentsClient({ departments }: Props) {
       )}
 
       <p className="text-xs text-gray-400">
-        Built-in departments can be renamed but not deleted. Custom departments can be deleted only if no employees are assigned to them.
+        All departments can be renamed. Any department can be deleted as long as no employees are currently assigned to it.
       </p>
     </div>
   )
