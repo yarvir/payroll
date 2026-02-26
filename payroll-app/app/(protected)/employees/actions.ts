@@ -158,12 +158,14 @@ export async function updateEmployee(
 type PaymentMethodRow = {
   method_type: string
   percentage: number
-  deel_account_details: string | null
+  deel_worker_id: string | null
+  chinese_name: string | null
   beneficiary_name: string | null
   account_number: string | null
   branch: string | null
   swift_code: string | null
   bank_name: string | null
+  bank_code: string | null
 }
 
 export async function getPaymentMethods(employeeId: string): Promise<PaymentMethodInput[]> {
@@ -179,12 +181,14 @@ export async function getPaymentMethods(employeeId: string): Promise<PaymentMeth
   return (data as PaymentMethodRow[]).map((row) => ({
     method_type: row.method_type as PaymentMethodInput['method_type'],
     percentage: row.percentage,
-    deel_account_details: row.deel_account_details,
+    deel_worker_id: row.deel_worker_id,
+    chinese_name: row.chinese_name,
     beneficiary_name: row.beneficiary_name,
     account_number: row.account_number,
     branch: row.branch,
     swift_code: row.swift_code,
     bank_name: row.bank_name,
+    bank_code: row.bank_code,
   }))
 }
 
