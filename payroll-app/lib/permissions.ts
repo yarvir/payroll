@@ -3,7 +3,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 export type PermissionKey =
   | 'view_all_employees'
-  | 'view_sensitive_employees'
   | 'view_salary_nonsensitive'
   | 'view_salary_sensitive'
   | 'manage_employees'
@@ -21,8 +20,7 @@ export type PermissionKey =
   | 'write_wiki'
 
 export const PERMISSION_LABELS: Record<PermissionKey, string> = {
-  view_all_employees:       'View All Employees (including sensitive)',
-  view_sensitive_employees: 'View Sensitive Employee Badge',
+  view_all_employees:       'Can view sensitive employees',
   view_salary_nonsensitive: 'View Salary (non-sensitive employees)',
   view_salary_sensitive:    'View Salary (sensitive employees)',
   manage_employees:         'Add & Edit Employees',

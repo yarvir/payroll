@@ -146,22 +146,61 @@ export async function resetUserPassword(userId: string): Promise<{ error?: strin
     const admin = await requireOwner()
     if (!admin) return { error: 'Only owners can reset passwords.' }
 
-    // Fetch the user's email so we can send the reset link
     const { data: authUser, error: fetchError } = await admin.auth.admin.getUserById(userId)
     if (fetchError || !authUser?.user?.email) {
       return { error: fetchError?.message ?? 'User not found.' }
     }
+    const email = authUser.user.email
 
     const appUrl =
       process.env.NEXT_PUBLIC_APP_URL ?? 'https://payroll11000.vercel.app'
     const redirectTo = `${appUrl}/auth/callback?next=/auth/set-password`
 
-    const { error } = await admin.auth.admin.generateLink({
+    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
       type: 'recovery',
-      email: authUser.user.email,
+      email,
       options: { redirectTo },
     })
-    if (error) return { error: error.message }
+    if (linkError) return { error: linkError.message }
+
+    const resetLink = (linkData as { properties?: { action_link?: string } })?.properties?.action_link
+    if (!resetLink) return { error: 'Failed to generate reset link.' }
+
+    const resendApiKey = process.env.RESEND_API_KEY
+    if (!resendApiKey) return { error: 'Email service not configured (RESEND_API_KEY missing).' }
+
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'HR <hr@1000miles.biz>',
+        to: [email],
+        subject: 'Reset your payroll portal password',
+        html: `
+          <p>Hello,</p>
+          <p>A password reset was requested for your account. Click the button below to set a new password:</p>
+          <p style="margin: 24px 0;">
+            <a href="${resetLink}"
+               style="background:#4F46E5;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">
+              Reset Password
+            </a>
+          </p>
+          <p>If the button doesn't work, copy and paste this link into your browser:</p>
+          <p style="word-break:break-all;color:#6B7280;">${resetLink}</p>
+          <p style="color:#9CA3AF;font-size:13px;">
+            This link expires in 24 hours. If you didn't request a password reset, you can safely ignore this email.
+          </p>
+        `,
+      }),
+    })
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { message?: string }
+      return { error: body.message ?? 'Failed to send email via Resend.' }
+    }
 
     return {}
   } catch (e) {

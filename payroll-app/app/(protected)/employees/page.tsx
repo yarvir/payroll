@@ -22,7 +22,7 @@ export default async function EmployeesPage() {
   const profile = profileData as Profile | null
   const userRole = profile?.role ?? 'employee'
   const perms = await getUserPermissions(userRole)
-  const viewSensitive = perms.view_sensitive_employees
+  const viewSensitive = perms.view_all_employees
   const manageEmployees = perms.manage_employees
 
   const [

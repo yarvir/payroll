@@ -12,7 +12,6 @@ const PERMISSION_CATEGORIES: { label: string; keys: PermissionKey[] }[] = [
     label: '👥 Employees',
     keys: [
       'view_all_employees',
-      'view_sensitive_employees',
       'manage_employees',
       'delete_employees',
     ],
