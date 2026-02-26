@@ -13,8 +13,6 @@ const PERMISSION_CATEGORIES: { label: string; keys: PermissionKey[] }[] = [
     keys: [
       'view_all_employees',
       'view_sensitive_employees',
-      'view_salary_nonsensitive',
-      'view_salary_sensitive',
       'manage_employees',
       'delete_employees',
     ],
@@ -29,7 +27,7 @@ const PERMISSION_CATEGORIES: { label: string; keys: PermissionKey[] }[] = [
   },
   {
     label: '📄 Contracts',
-    keys: ['view_edit_contracts'],
+    keys: ['view_edit_contracts', 'view_salary_nonsensitive', 'view_salary_sensitive'],
   },
   {
     label: '🏖️ Leave',
