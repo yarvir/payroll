@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, useRef } from 'react'
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
 import { canManageEmployees } from '@/lib/roles'
 import EditEmployeeModal from './EditEmployeeModal'
 import type { Employee, EmployeeGroup } from '@/types/database'
@@ -75,6 +75,7 @@ export default function EmployeeTable({
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [showSensitiveOnly, setShowSensitiveOnly] = useState(false)
   const [editingEmployee, setEditingEmployee] = useState<EmployeeWithGroup | null>(null)
+  const [exporting, setExporting] = useState(false)
   const [columnsOpen, setColumnsOpen] = useState(false)
   const [visibleColumns, setVisibleColumns] = useState<Set<ColumnId>>(
     new Set(DEFAULT_COLUMNS),
@@ -172,44 +173,246 @@ export default function EmployeeTable({
     return entries
   }, [filtered])
 
-  function handleExport() {
-    const EXPORT_COLS = [
-      'Employee Number', 'Full Name', 'Email', 'Position',
-      'Department', 'Group', 'Status', 'Hire Date', 'Birthdate',
-    ]
+  async function handleExport() {
+    if (exporting) return
+    setExporting(true)
+    try {
+      // ── Palette (ARGB) ────────────────────────────────────────────────────
+      const NAVY    = 'FF1F3864'   // dark navy  — title bars, totals row
+      const DKBLUE  = 'FF2E4A7A'   // medium navy — section headers
+      const HDRBLUE = 'FF4472C4'   // cornflower  — column header rows
+      const ALTBLUE = 'FFDCE6F1'   // pale blue   — alternating data rows
+      const WHITE   = 'FFFFFFFF'
+      const DKTEXT  = 'FF1F1F1F'
+      const LTTEXT  = 'FFFFFFFF'
+      const BDRCLR  = 'FFB8CCE4'   // soft blue border
 
-    const rows: (string | null)[][] = []
+      const thin: ExcelJS.Border = { style: 'thin', color: { argb: BDRCLR } }
+      const allBorders: Partial<ExcelJS.Borders> = { top: thin, left: thin, bottom: thin, right: thin }
 
-    for (const [, { group, members }] of groupedEmployees) {
-      rows.push([group?.name ?? 'Ungrouped'])
-      rows.push(EXPORT_COLS)
-      for (const emp of members) {
-        rows.push([
-          emp.employee_number,
-          emp.full_name,
-          emp.email,
-          emp.position ?? '',
-          emp.department ?? '',
-          group?.name ?? '',
-          STATUS_LABELS[emp.status],
-          emp.hire_date ?? '',
-          '',  // birthdate — no DB column yet
-        ])
+      const solidFill = (argb: string): ExcelJS.Fill =>
+        ({ type: 'pattern', pattern: 'solid', fgColor: { argb } }) as ExcelJS.Fill
+      const arial = (opts: Partial<ExcelJS.Font>): Partial<ExcelJS.Font> =>
+        ({ name: 'Arial', ...opts })
+
+      // ── Reusable row builders ─────────────────────────────────────────────
+
+      function addTitleRow(ws: ExcelJS.Worksheet, text: string, colCount: number) {
+        const row = ws.addRow([text])
+        row.height = 32
+        for (let c = 1; c <= colCount; c++) {
+          const cell = row.getCell(c)
+          cell.fill = solidFill(NAVY)
+          cell.border = allBorders
+          if (c === 1) {
+            cell.font = arial({ bold: true, size: 14, color: { argb: LTTEXT } })
+            cell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 }
+          }
+        }
+        if (colCount > 1) ws.mergeCells(row.number, 1, row.number, colCount)
       }
-      rows.push([])
+
+      function addSectionRow(ws: ExcelJS.Worksheet, name: string, count: number, colCount: number) {
+        const label = `${name}   (${count} member${count !== 1 ? 's' : ''})`
+        const row = ws.addRow([label])
+        row.height = 22
+        for (let c = 1; c <= colCount; c++) {
+          const cell = row.getCell(c)
+          cell.fill = solidFill(DKBLUE)
+          cell.border = allBorders
+          if (c === 1) {
+            cell.font = arial({ bold: true, size: 11, color: { argb: LTTEXT } })
+            cell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 }
+          }
+        }
+        if (colCount > 1) ws.mergeCells(row.number, 1, row.number, colCount)
+      }
+
+      function addHeaderRow(ws: ExcelJS.Worksheet, labels: string[]) {
+        const row = ws.addRow(labels)
+        row.height = 18
+        for (let c = 1; c <= labels.length; c++) {
+          const cell = row.getCell(c)
+          cell.font = arial({ bold: true, size: 10, color: { argb: LTTEXT } })
+          cell.fill = solidFill(HDRBLUE)
+          cell.alignment = { vertical: 'middle', horizontal: 'center' }
+          cell.border = allBorders
+        }
+      }
+
+      function addDataRow(
+        ws: ExcelJS.Worksheet,
+        values: (string | null)[],
+        isAlt: boolean,
+        statusColIdx: number,
+      ) {
+        const row = ws.addRow(values)
+        row.height = 16
+        const bg = isAlt ? ALTBLUE : WHITE
+        for (let c = 1; c <= values.length; c++) {
+          const cell = row.getCell(c)
+          cell.font = arial({ size: 10, color: { argb: DKTEXT } })
+          cell.fill = solidFill(bg)
+          cell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 }
+          cell.border = allBorders
+          // Colour-coded status cell
+          if (c === statusColIdx) {
+            const s = cell.value as string
+            if (s === 'Active') {
+              cell.font = arial({ bold: true, size: 10, color: { argb: 'FF375623' } })
+              cell.fill = solidFill('FFE2EFDA')
+            } else if (s === 'Inactive') {
+              cell.font = arial({ bold: true, size: 10, color: { argb: 'FFC00000' } })
+              cell.fill = solidFill('FFFCE4D6')
+            } else if (s === 'On Leave') {
+              cell.font = arial({ bold: true, size: 10, color: { argb: 'FF9C5700' } })
+              cell.fill = solidFill('FFFFF2CC')
+            }
+          }
+        }
+      }
+
+      // ── Workbook ──────────────────────────────────────────────────────────
+      const wb = new ExcelJS.Workbook()
+      wb.creator = 'Payroll'
+
+      const EMP_COLS = ['Employee Number', 'Full Name', 'Email', 'Position',
+                        'Department', 'Group', 'Status', 'Hire Date', 'Birthdate']
+      const EMP_WIDTHS = [18, 28, 32, 24, 18, 22, 12, 14, 14]
+      const N = EMP_COLS.length
+
+      const dateLabel = new Date().toLocaleDateString('en-GB',
+        { day: '2-digit', month: 'short', year: 'numeric' })
+
+      // ── Sheet 1: Employees ────────────────────────────────────────────────
+      const ws1 = wb.addWorksheet('Employees', {
+        views: [{ state: 'frozen', ySplit: 1, showGridLines: false }],
+      })
+      ws1.columns = EMP_WIDTHS.map(w => ({ width: w }))
+      addTitleRow(ws1, `EMPLOYEE REPORT — ${dateLabel}`, N)
+
+      for (const [, { group, members }] of groupedEmployees) {
+        const gName = group?.name ?? 'Ungrouped'
+        addSectionRow(ws1, gName, members.length, N)
+        addHeaderRow(ws1, EMP_COLS)
+        members.forEach((emp, i) => {
+          addDataRow(ws1, [
+            emp.employee_number,
+            emp.full_name,
+            emp.email,
+            emp.position ?? '',
+            emp.department ?? '',
+            gName,
+            STATUS_LABELS[emp.status],
+            emp.hire_date ?? '',
+            '',
+          ], i % 2 === 1, 7)
+        })
+        ws1.addRow([])
+      }
+
+      // ── Sheet 2: Summary ──────────────────────────────────────────────────
+      const SUM_COLS  = ['Group Name', 'Total Employees', 'Active', 'Inactive', 'On Leave']
+      const SUM_WIDTHS = [28, 18, 12, 12, 12]
+      const NS = SUM_COLS.length
+
+      const ws2 = wb.addWorksheet('Summary', {
+        views: [{ state: 'frozen', ySplit: 2, showGridLines: false }],
+      })
+      ws2.columns = SUM_WIDTHS.map(w => ({ width: w }))
+      addTitleRow(ws2, `SUMMARY BY GROUP — ${dateLabel}`, NS)
+      addHeaderRow(ws2, SUM_COLS)
+
+      const dataStart = 3  // row 1 = title, row 2 = col headers
+      groupedEmployees.forEach(([, { group, members }], i) => {
+        const active  = members.filter(e => e.status === 'active').length
+        const inactive = members.filter(e => e.status === 'inactive').length
+        const onLeave  = members.filter(e => e.status === 'on_leave').length
+        const row = ws2.addRow([group?.name ?? 'Ungrouped', members.length, active, inactive, onLeave])
+        row.height = 16
+        const bg = i % 2 === 1 ? ALTBLUE : WHITE
+        for (let c = 1; c <= NS; c++) {
+          const cell = row.getCell(c)
+          cell.font = arial({ size: 10, color: { argb: DKTEXT } })
+          cell.fill = solidFill(bg)
+          cell.border = allBorders
+          cell.alignment = c === 1
+            ? { vertical: 'middle', horizontal: 'left', indent: 1 }
+            : { vertical: 'middle', horizontal: 'center' }
+        }
+      })
+
+      const dataEnd = dataStart + groupedEmployees.length - 1
+      const totRow = ws2.addRow([
+        'TOTAL',
+        { formula: `SUM(B${dataStart}:B${dataEnd})` },
+        { formula: `SUM(C${dataStart}:C${dataEnd})` },
+        { formula: `SUM(D${dataStart}:D${dataEnd})` },
+        { formula: `SUM(E${dataStart}:E${dataEnd})` },
+      ])
+      totRow.height = 20
+      for (let c = 1; c <= NS; c++) {
+        const cell = totRow.getCell(c)
+        cell.font = arial({ bold: true, size: 10, color: { argb: LTTEXT } })
+        cell.fill = solidFill(NAVY)
+        cell.border = allBorders
+        cell.alignment = c === 1
+          ? { vertical: 'middle', horizontal: 'left', indent: 1 }
+          : { vertical: 'middle', horizontal: 'center' }
+      }
+
+      // ── Sheet 3: By Department ────────────────────────────────────────────
+      const ws3 = wb.addWorksheet('By Department', {
+        views: [{ state: 'frozen', ySplit: 1, showGridLines: false }],
+      })
+      ws3.columns = EMP_WIDTHS.map(w => ({ width: w }))
+      addTitleRow(ws3, `EMPLOYEES BY DEPARTMENT — ${dateLabel}`, N)
+
+      const deptMap = new Map<string, EmployeeWithGroup[]>()
+      for (const emp of filtered) {
+        const dept = emp.department || 'No Department'
+        if (!deptMap.has(dept)) deptMap.set(dept, [])
+        deptMap.get(dept)!.push(emp)
+      }
+      const deptEntries = Array.from(deptMap.entries()).sort(([a], [b]) =>
+        a === 'No Department' ? 1 : b === 'No Department' ? -1 : a.localeCompare(b),
+      )
+
+      for (const [dept, members] of deptEntries) {
+        addSectionRow(ws3, dept, members.length, N)
+        addHeaderRow(ws3, EMP_COLS)
+        members.forEach((emp, i) => {
+          addDataRow(ws3, [
+            emp.employee_number,
+            emp.full_name,
+            emp.email,
+            emp.position ?? '',
+            emp.department ?? '',
+            emp.employee_groups?.name ?? '',
+            STATUS_LABELS[emp.status],
+            emp.hire_date ?? '',
+            '',
+          ], i % 2 === 1, 7)
+        })
+        ws3.addRow([])
+      }
+
+      // ── Download ──────────────────────────────────────────────────────────
+      const buffer = await wb.xlsx.writeBuffer()
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `employees_export_${new Date().toISOString().split('T')[0]}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } finally {
+      setExporting(false)
     }
-
-    const ws = XLSX.utils.aoa_to_sheet(rows)
-    ws['!cols'] = [
-      { wch: 16 }, { wch: 26 }, { wch: 30 }, { wch: 22 },
-      { wch: 16 }, { wch: 22 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
-    ]
-
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Employees')
-
-    const date = new Date().toISOString().split('T')[0]
-    XLSX.writeFile(wb, `employees_export_${date}.xlsx`)
   }
 
   return (
@@ -271,14 +474,21 @@ export default function EmployeeTable({
         {/* Export button */}
         <button
           onClick={handleExport}
-          disabled={filtered.length === 0}
+          disabled={filtered.length === 0 || exporting}
           className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-          Export
+          {exporting ? (
+            <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+          )}
+          {exporting ? 'Exporting…' : 'Export'}
         </button>
 
         {/* Columns button + dropdown */}
