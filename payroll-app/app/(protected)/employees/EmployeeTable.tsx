@@ -78,6 +78,7 @@ export default function EmployeeTable({
   const [showSensitiveOnly, setShowSensitiveOnly] = useState(false)
   const [editingEmployee, setEditingEmployee] = useState<EmployeeWithGroup | null>(null)
   const [exporting, setExporting] = useState(false)
+  const [groupBy, setGroupBy] = useState<'group' | 'department'>('group')
   const [columnsOpen, setColumnsOpen] = useState(false)
   const [visibleColumns, setVisibleColumns] = useState<Set<ColumnId>>(
     new Set(DEFAULT_COLUMNS),
@@ -175,6 +176,26 @@ export default function EmployeeTable({
 
     return entries
   }, [filtered])
+
+  const groupedByDept = useMemo(() => {
+    const map = new Map<string, EmployeeWithGroup[]>()
+    for (const emp of filtered) {
+      const dept = emp.department || 'No Department'
+      if (!map.has(dept)) map.set(dept, [])
+      map.get(dept)!.push(emp)
+    }
+    const knownNames = departments.map(d => d.name)
+    const knownWithEmployees = knownNames.filter(n => map.has(n))
+    const unknownKeys = Array.from(map.keys())
+      .filter(k => k !== 'No Department' && !knownNames.includes(k))
+      .sort((a, b) => a.localeCompare(b))
+    const orderedKeys = [
+      ...knownWithEmployees,
+      ...unknownKeys,
+      ...(map.has('No Department') ? ['No Department'] : []),
+    ]
+    return orderedKeys.map(k => ({ deptName: k, members: map.get(k)! }))
+  }, [filtered, departments])
 
   async function handleExport() {
     if (exporting) return
@@ -314,26 +335,59 @@ export default function EmployeeTable({
         ws1.addRow([])
       }
 
+      // ── Pre-compute department grouping (shared by Sheet 2 + Sheet 3) ──────
+      const deptMap = new Map<string, EmployeeWithGroup[]>()
+      for (const emp of filtered) {
+        const dept = emp.department || 'No Department'
+        if (!deptMap.has(dept)) deptMap.set(dept, [])
+        deptMap.get(dept)!.push(emp)
+      }
+      const knownNames = departments.map(d => d.name)
+      const knownWithEmployees = knownNames.filter(n => deptMap.has(n))
+      const unknownDeptKeys = Array.from(deptMap.keys())
+        .filter(k => k !== 'No Department' && !knownNames.includes(k))
+        .sort((a, b) => a.localeCompare(b))
+      const orderedDeptKeys = [
+        ...knownWithEmployees,
+        ...unknownDeptKeys,
+        ...(deptMap.has('No Department') ? ['No Department'] : []),
+      ]
+      const deptEntries: [string, EmployeeWithGroup[]][] = orderedDeptKeys.map(k => [
+        k, deptMap.get(k)!,
+      ])
+
       // ── Sheet 2: Summary ──────────────────────────────────────────────────
-      const SUM_COLS  = ['Group Name', 'Total Employees', 'Active', 'Inactive', 'On Leave']
+      const SUM_COLS   = ['Name', 'Total Employees', 'Active', 'Inactive', 'On Leave']
       const SUM_WIDTHS = [28, 18, 12, 12, 12]
       const NS = SUM_COLS.length
 
-      const ws2 = wb.addWorksheet('Summary', {
-        views: [{ state: 'frozen', ySplit: 2, showGridLines: false }],
-      })
-      ws2.columns = SUM_WIDTHS.map(w => ({ width: w }))
-      addTitleRow(ws2, `SUMMARY BY GROUP — ${dateLabel}`, NS)
-      addHeaderRow(ws2, SUM_COLS)
+      const addSubHeaderRow = (ws: ExcelJS.Worksheet, text: string) => {
+        const row = ws.addRow([text])
+        row.height = 20
+        for (let c = 1; c <= NS; c++) {
+          const cell = row.getCell(c)
+          cell.fill = solidFill(DKBLUE)
+          cell.border = allBorders
+          if (c === 1) {
+            cell.font = arial({ bold: true, size: 11, color: { argb: LTTEXT } })
+            cell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 }
+          }
+        }
+        ws.mergeCells(row.number, 1, row.number, NS)
+      }
 
-      const dataStart = 3  // row 1 = title, row 2 = col headers
-      groupedEmployees.forEach(([, { group, members }], i) => {
-        const active  = members.filter(e => e.status === 'active').length
-        const inactive = members.filter(e => e.status === 'inactive').length
-        const onLeave  = members.filter(e => e.status === 'on_leave').length
-        const row = ws2.addRow([group?.name ?? 'Ungrouped', members.length, active, inactive, onLeave])
+      const addSummaryDataRow = (
+        ws: ExcelJS.Worksheet,
+        label: string,
+        total: number,
+        active: number,
+        inactive: number,
+        onLeave: number,
+        isAlt: boolean,
+      ) => {
+        const row = ws.addRow([label, total, active, inactive, onLeave])
         row.height = 16
-        const bg = i % 2 === 1 ? ALTBLUE : WHITE
+        const bg = isAlt ? ALTBLUE : WHITE
         for (let c = 1; c <= NS; c++) {
           const cell = row.getCell(c)
           cell.font = arial({ size: 10, color: { argb: DKTEXT } })
@@ -343,26 +397,76 @@ export default function EmployeeTable({
             ? { vertical: 'middle', horizontal: 'left', indent: 1 }
             : { vertical: 'middle', horizontal: 'center' }
         }
-      })
-
-      const dataEnd = dataStart + groupedEmployees.length - 1
-      const totRow = ws2.addRow([
-        'TOTAL',
-        { formula: `SUM(B${dataStart}:B${dataEnd})` },
-        { formula: `SUM(C${dataStart}:C${dataEnd})` },
-        { formula: `SUM(D${dataStart}:D${dataEnd})` },
-        { formula: `SUM(E${dataStart}:E${dataEnd})` },
-      ])
-      totRow.height = 20
-      for (let c = 1; c <= NS; c++) {
-        const cell = totRow.getCell(c)
-        cell.font = arial({ bold: true, size: 10, color: { argb: LTTEXT } })
-        cell.fill = solidFill(NAVY)
-        cell.border = allBorders
-        cell.alignment = c === 1
-          ? { vertical: 'middle', horizontal: 'left', indent: 1 }
-          : { vertical: 'middle', horizontal: 'center' }
+        return row.number
       }
+
+      const addSummaryTotalsRow = (
+        ws: ExcelJS.Worksheet,
+        dataStart: number,
+        dataEnd: number,
+      ) => {
+        const row = ws.addRow([
+          'TOTAL',
+          { formula: `SUM(B${dataStart}:B${dataEnd})` },
+          { formula: `SUM(C${dataStart}:C${dataEnd})` },
+          { formula: `SUM(D${dataStart}:D${dataEnd})` },
+          { formula: `SUM(E${dataStart}:E${dataEnd})` },
+        ])
+        row.height = 20
+        for (let c = 1; c <= NS; c++) {
+          const cell = row.getCell(c)
+          cell.font = arial({ bold: true, size: 10, color: { argb: LTTEXT } })
+          cell.fill = solidFill(NAVY)
+          cell.border = allBorders
+          cell.alignment = c === 1
+            ? { vertical: 'middle', horizontal: 'left', indent: 1 }
+            : { vertical: 'middle', horizontal: 'center' }
+        }
+      }
+
+      const ws2 = wb.addWorksheet('Summary', {
+        views: [{ state: 'frozen', ySplit: 1, showGridLines: false }],
+      })
+      ws2.columns = SUM_WIDTHS.map(w => ({ width: w }))
+      addTitleRow(ws2, `SUMMARY — ${dateLabel}`, NS)
+
+      // ── By Group sub-table ─────────────────────────────────────────────────
+      addSubHeaderRow(ws2, 'EMPLOYEES BY GROUP')
+      addHeaderRow(ws2, SUM_COLS)
+      const groupDataStart = ws2.rowCount + 1
+      groupedEmployees.forEach(([, { group, members }], i) => {
+        addSummaryDataRow(
+          ws2,
+          group?.name ?? 'Ungrouped',
+          members.length,
+          members.filter(e => e.status === 'active').length,
+          members.filter(e => e.status === 'inactive').length,
+          members.filter(e => e.status === 'on_leave').length,
+          i % 2 === 1,
+        )
+      })
+      const groupDataEnd = ws2.rowCount
+      addSummaryTotalsRow(ws2, groupDataStart, groupDataEnd)
+
+      ws2.addRow([])  // spacer
+
+      // ── By Department sub-table ────────────────────────────────────────────
+      addSubHeaderRow(ws2, 'EMPLOYEES BY DEPARTMENT')
+      addHeaderRow(ws2, SUM_COLS)
+      const deptDataStart = ws2.rowCount + 1
+      deptEntries.forEach(([deptName, members], i) => {
+        addSummaryDataRow(
+          ws2,
+          deptName,
+          members.length,
+          members.filter(e => e.status === 'active').length,
+          members.filter(e => e.status === 'inactive').length,
+          members.filter(e => e.status === 'on_leave').length,
+          i % 2 === 1,
+        )
+      })
+      const deptDataEnd = ws2.rowCount
+      addSummaryTotalsRow(ws2, deptDataStart, deptDataEnd)
 
       // ── Sheet 3: By Department ────────────────────────────────────────────
       const ws3 = wb.addWorksheet('By Department', {
@@ -370,29 +474,6 @@ export default function EmployeeTable({
       })
       ws3.columns = EMP_WIDTHS.map(w => ({ width: w }))
       addTitleRow(ws3, `EMPLOYEES BY DEPARTMENT — ${dateLabel}`, N)
-
-      const deptMap = new Map<string, EmployeeWithGroup[]>()
-      for (const emp of filtered) {
-        const dept = emp.department || 'No Department'
-        if (!deptMap.has(dept)) deptMap.set(dept, [])
-        deptMap.get(dept)!.push(emp)
-      }
-      // Use the canonical departments list (from DB) for ordering, then append any
-      // employee-level dept strings not found in the table, then "No Department" last.
-      const knownNames = departments.map(d => d.name)
-      const knownWithEmployees = knownNames.filter(n => deptMap.has(n))
-      const unknownKeys = Array.from(deptMap.keys()).filter(
-        k => k !== 'No Department' && !knownNames.includes(k),
-      ).sort((a, b) => a.localeCompare(b))
-      const orderedKeys = [
-        ...knownWithEmployees,
-        ...unknownKeys,
-        ...(deptMap.has('No Department') ? ['No Department'] : []),
-      ]
-      const deptEntries: [string, EmployeeWithGroup[]][] = orderedKeys.map(k => [
-        k,
-        deptMap.get(k)!,
-      ])
 
       for (const [dept, members] of deptEntries) {
         addSectionRow(ws3, dept, members.length, N)
@@ -487,6 +568,30 @@ export default function EmployeeTable({
           </label>
         )}
 
+        {/* Group-by toggle */}
+        <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+          <button
+            onClick={() => setGroupBy('group')}
+            className={`px-3 py-2 transition ${
+              groupBy === 'group'
+                ? 'bg-indigo-600 text-white font-medium'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            By Group
+          </button>
+          <button
+            onClick={() => setGroupBy('department')}
+            className={`px-3 py-2 border-l border-gray-200 transition ${
+              groupBy === 'department'
+                ? 'bg-indigo-600 text-white font-medium'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            By Department
+          </button>
+        </div>
+
         {/* Export button */}
         <button
           onClick={handleExport}
@@ -558,8 +663,8 @@ export default function EmployeeTable({
         </span>
       </div>
 
-      {/* Grouped employee list */}
-      {groupedEmployees.length === 0 ? (
+      {/* Employee list */}
+      {filtered.length === 0 ? (
         <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
           <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
@@ -567,11 +672,10 @@ export default function EmployeeTable({
           </svg>
           <p className="text-gray-500 text-sm">No employees found</p>
         </div>
-      ) : (
+      ) : groupBy === 'group' ? (
         <div className="space-y-4">
           {groupedEmployees.map(([key, { group, members }]) => (
             <div key={key} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-              {/* Group header */}
               <div className="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-indigo-400" />
                 <span className="text-sm font-semibold text-gray-700">
@@ -584,8 +688,32 @@ export default function EmployeeTable({
                   {members.length} member{members.length !== 1 ? 's' : ''}
                 </span>
               </div>
-
-              {/* Employee rows */}
+              <div className="divide-y divide-gray-100">
+                {members.map(emp => (
+                  <EmployeeRow
+                    key={emp.id}
+                    employee={emp}
+                    viewSensitive={viewSensitive}
+                    canManage={canManage}
+                    cols={visibleColumns}
+                    onEdit={setEditingEmployee}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {groupedByDept.map(({ deptName, members }) => (
+            <div key={deptName} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-violet-400" />
+                <span className="text-sm font-semibold text-gray-700">{deptName}</span>
+                <span className="ml-auto text-xs text-gray-400">
+                  {members.length} member{members.length !== 1 ? 's' : ''}
+                </span>
+              </div>
               <div className="divide-y divide-gray-100">
                 {members.map(emp => (
                   <EmployeeRow
