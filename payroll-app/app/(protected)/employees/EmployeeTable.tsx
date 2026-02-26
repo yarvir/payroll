@@ -149,10 +149,11 @@ export default function EmployeeTable({
       const matchesStatus = statusFilter === 'all' || emp.status === statusFilter
 
       const matchesSensitive = !showSensitiveOnly || emp.is_sensitive
+      const sensitiveVisible = !emp.is_sensitive || viewSensitive
 
-      return matchesSearch && matchesGroup && matchesStatus && matchesSensitive
+      return matchesSearch && matchesGroup && matchesStatus && matchesSensitive && sensitiveVisible
     })
-  }, [employees, search, selectedGroup, statusFilter, showSensitiveOnly])
+  }, [employees, search, selectedGroup, statusFilter, showSensitiveOnly, viewSensitive])
 
   const groupedEmployees = useMemo(() => {
     const map = new Map<string, { group: EmployeeGroup | null; members: EmployeeWithGroup[] }>()

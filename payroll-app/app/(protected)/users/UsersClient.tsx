@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { deactivateUser, reactivateUser, deleteUser } from './actions'
+import { deactivateUser, reactivateUser, deleteUser, resetUserPassword } from './actions'
 import InviteUserModal from './InviteUserModal'
 import EditUserModal from './EditUserModal'
 import { getRoleLabel, getRoleColor } from '@/lib/roles'
@@ -41,11 +41,30 @@ export default function UsersClient({ userRows, employees, roles }: Props) {
   const [inviteOpen, setInviteOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<UserRow | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
+  function handleResetPassword(userId: string) {
+    setActionError(null)
+    setActionSuccess(null)
+    startTransition(async () => {
+      try {
+        const result = await resetUserPassword(userId)
+        if (result?.error) {
+          setActionError(result.error)
+        } else {
+          setActionSuccess('Password reset email sent successfully.')
+        }
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : 'An unexpected error occurred.')
+      }
+    })
+  }
+
   function handleToggleBan(row: UserRow) {
     setActionError(null)
+    setActionSuccess(null)
     startTransition(async () => {
       try {
         const result = row.banned
@@ -64,6 +83,7 @@ export default function UsersClient({ userRows, employees, roles }: Props) {
 
   function handleDelete(userId: string) {
     setActionError(null)
+    setActionSuccess(null)
     setDeleteConfirmId(null)
     startTransition(async () => {
       try {
@@ -103,6 +123,11 @@ export default function UsersClient({ userRows, employees, roles }: Props) {
       {actionError && (
         <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
           {actionError}
+        </div>
+      )}
+      {actionSuccess && (
+        <div className="mb-4 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-700">
+          {actionSuccess}
         </div>
       )}
 
@@ -217,6 +242,13 @@ export default function UsersClient({ userRows, employees, roles }: Props) {
                             className="text-xs text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 rounded hover:bg-indigo-50 transition"
                           >
                             Edit
+                          </button>
+                          <button
+                            onClick={() => handleResetPassword(row.id)}
+                            disabled={pending}
+                            className="text-xs font-medium px-2 py-1 rounded text-sky-600 hover:text-sky-800 hover:bg-sky-50 disabled:opacity-50 transition"
+                          >
+                            Reset Password
                           </button>
                           <button
                             onClick={() => handleToggleBan(row)}

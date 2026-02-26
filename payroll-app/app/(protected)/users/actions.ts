@@ -141,6 +141,34 @@ export async function deleteUser(userId: string): Promise<{ error?: string }> {
   }
 }
 
+export async function resetUserPassword(userId: string): Promise<{ error?: string }> {
+  try {
+    const admin = await requireOwner()
+    if (!admin) return { error: 'Only owners can reset passwords.' }
+
+    // Fetch the user's email so we can send the reset link
+    const { data: authUser, error: fetchError } = await admin.auth.admin.getUserById(userId)
+    if (fetchError || !authUser?.user?.email) {
+      return { error: fetchError?.message ?? 'User not found.' }
+    }
+
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ?? 'https://payroll11000.vercel.app'
+    const redirectTo = `${appUrl}/auth/callback?next=/auth/set-password`
+
+    const { error } = await admin.auth.admin.generateLink({
+      type: 'recovery',
+      email: authUser.user.email,
+      options: { redirectTo },
+    })
+    if (error) return { error: error.message }
+
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'An unexpected error occurred.' }
+  }
+}
+
 export async function deactivateUser(userId: string): Promise<{ error?: string }> {
   try {
     const admin = await requireOwner()
