@@ -155,6 +155,17 @@ export async function updateEmployee(
   return {}
 }
 
+type PaymentMethodRow = {
+  method_type: string
+  percentage: number
+  deel_account_details: string | null
+  beneficiary_name: string | null
+  account_number: string | null
+  branch: string | null
+  swift_code: string | null
+  bank_name: string | null
+}
+
 export async function getPaymentMethods(employeeId: string): Promise<PaymentMethodInput[]> {
   const admin = createAdminClient()
   const { data } = await admin
@@ -165,7 +176,7 @@ export async function getPaymentMethods(employeeId: string): Promise<PaymentMeth
 
   if (!data) return []
 
-  return data.map((row) => ({
+  return (data as PaymentMethodRow[]).map((row) => ({
     method_type: row.method_type,
     percentage: row.percentage,
     deel_account_details: row.deel_account_details,
