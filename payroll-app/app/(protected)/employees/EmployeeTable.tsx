@@ -377,9 +377,22 @@ export default function EmployeeTable({
         if (!deptMap.has(dept)) deptMap.set(dept, [])
         deptMap.get(dept)!.push(emp)
       }
-      const deptEntries = Array.from(deptMap.entries()).sort(([a], [b]) =>
-        a === 'No Department' ? 1 : b === 'No Department' ? -1 : a.localeCompare(b),
-      )
+      // Use the canonical departments list (from DB) for ordering, then append any
+      // employee-level dept strings not found in the table, then "No Department" last.
+      const knownNames = departments.map(d => d.name)
+      const knownWithEmployees = knownNames.filter(n => deptMap.has(n))
+      const unknownKeys = Array.from(deptMap.keys()).filter(
+        k => k !== 'No Department' && !knownNames.includes(k),
+      ).sort((a, b) => a.localeCompare(b))
+      const orderedKeys = [
+        ...knownWithEmployees,
+        ...unknownKeys,
+        ...(deptMap.has('No Department') ? ['No Department'] : []),
+      ]
+      const deptEntries: [string, EmployeeWithGroup[]][] = orderedKeys.map(k => [
+        k,
+        deptMap.get(k)!,
+      ])
 
       for (const [dept, members] of deptEntries) {
         addSectionRow(ws3, dept, members.length, N)
