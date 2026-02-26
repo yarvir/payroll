@@ -177,7 +177,7 @@ export async function getPaymentMethods(employeeId: string): Promise<PaymentMeth
   if (!data) return []
 
   return (data as PaymentMethodRow[]).map((row) => ({
-    method_type: row.method_type,
+    method_type: row.method_type as PaymentMethodInput['method_type'],
     percentage: row.percentage,
     deel_account_details: row.deel_account_details,
     beneficiary_name: row.beneficiary_name,
