@@ -4,7 +4,7 @@ import { forwardRef, useImperativeHandle, useState } from 'react'
 import type { PaymentMethodInput, PaymentMethodType } from '@/types/database'
 
 export interface PaymentMethodsHandle {
-  validate: () => string | null   // returns error message or null if valid
+  validate: () => string | null
   getPaymentMethods: () => PaymentMethodInput[]
 }
 
@@ -21,24 +21,31 @@ const ALL_METHODS: PaymentMethodType[] = ['deel', 'ccb', 'non_ccb', 'hsbc', 'oth
 type MethodState = {
   enabled: boolean
   percentage: string
-  deel_account_details: string
+  // Deel
+  deel_worker_id: string
+  // CCB
+  chinese_name: string
+  // Shared bank fields
   beneficiary_name: string
   account_number: string
-  branch: string
-  swift_code: string
-  bank_name: string
+  branch: string       // used as branch code (联行号) for non_ccb, branch for other
+  swift_code: string   // other only
+  bank_name: string    // hsbc, other
+  bank_code: string    // hsbc
 }
 
 function emptyMethod(): MethodState {
   return {
     enabled: false,
     percentage: '',
-    deel_account_details: '',
+    deel_worker_id: '',
+    chinese_name: '',
     beneficiary_name: '',
     account_number: '',
     branch: '',
     swift_code: '',
     bank_name: '',
+    bank_code: '',
   }
 }
 
@@ -52,12 +59,14 @@ function initFromData(initialData?: PaymentMethodInput[]): Record<PaymentMethodT
       state[m.method_type] = {
         enabled: true,
         percentage: String(m.percentage),
-        deel_account_details: m.deel_account_details ?? '',
+        deel_worker_id: m.deel_worker_id ?? '',
+        chinese_name: m.chinese_name ?? '',
         beneficiary_name: m.beneficiary_name ?? '',
         account_number: m.account_number ?? '',
         branch: m.branch ?? '',
         swift_code: m.swift_code ?? '',
         bank_name: m.bank_name ?? '',
+        bank_code: m.bank_code ?? '',
       }
     }
   }
@@ -80,7 +89,7 @@ const PaymentMethodsSection = forwardRef<PaymentMethodsHandle, Props>(
         const enabled = ALL_METHODS.filter((t) => methods[t].enabled)
         if (enabled.length === 0) {
           setValidationError(null)
-          return null  // no payment methods configured — allowed
+          return null
         }
         const total = enabled.reduce((sum, t) => {
           const pct = parseInt(methods[t].percentage, 10)
@@ -94,14 +103,20 @@ const PaymentMethodsSection = forwardRef<PaymentMethodsHandle, Props>(
         for (const t of enabled) {
           const m = methods[t]
           if (t === 'deel') {
-            if (!m.deel_account_details.trim()) {
-              const msg = 'Deel account details are required.'
+            if (!m.deel_worker_id.trim()) {
+              const msg = 'Deel Worker ID is required.'
+              setValidationError(msg)
+              return msg
+            }
+          } else if (t === 'ccb') {
+            if (!m.chinese_name.trim() || !m.account_number.trim()) {
+              const msg = 'Chinese Name and Account Number are required for CCB.'
               setValidationError(msg)
               return msg
             }
           } else {
             if (!m.beneficiary_name.trim() || !m.account_number.trim()) {
-              const msg = `Beneficiary name and account number are required for ${METHOD_LABELS[t]}.`
+              const msg = `Beneficiary Name and Account Number are required for ${METHOD_LABELS[t]}.`
               setValidationError(msg)
               return msg
             }
@@ -118,15 +133,26 @@ const PaymentMethodsSection = forwardRef<PaymentMethodsHandle, Props>(
             percentage: parseInt(m.percentage, 10) || 0,
           }
           if (t === 'deel') {
-            base.deel_account_details = m.deel_account_details.trim() || null
+            base.deel_worker_id = m.deel_worker_id.trim() || null
+          } else if (t === 'ccb') {
+            base.chinese_name = m.chinese_name.trim() || null
+            base.account_number = m.account_number.trim() || null
+          } else if (t === 'non_ccb') {
+            base.beneficiary_name = m.beneficiary_name.trim() || null
+            base.account_number = m.account_number.trim() || null
+            base.branch = m.branch.trim() || null
+          } else if (t === 'hsbc') {
+            base.beneficiary_name = m.beneficiary_name.trim() || null
+            base.account_number = m.account_number.trim() || null
+            base.bank_name = m.bank_name.trim() || null
+            base.bank_code = m.bank_code.trim() || null
           } else {
+            // other
             base.beneficiary_name = m.beneficiary_name.trim() || null
             base.account_number = m.account_number.trim() || null
             base.branch = m.branch.trim() || null
             base.swift_code = m.swift_code.trim() || null
-            if (t === 'non_ccb' || t === 'other') {
-              base.bank_name = m.bank_name.trim() || null
-            }
+            base.bank_name = m.bank_name.trim() || null
           }
           return base
         })
@@ -167,7 +193,7 @@ const PaymentMethodsSection = forwardRef<PaymentMethodsHandle, Props>(
                 : 'bg-amber-50 border border-amber-200 text-amber-700'
             }`}
           >
-            Total: {totalPct}% {totalPct === 100 ? '✓' : `(must equal 100%)`}
+            Total: {totalPct}% {totalPct === 100 ? '✓' : '(must equal 100%)'}
           </div>
         )}
 
@@ -215,20 +241,152 @@ const PaymentMethodsSection = forwardRef<PaymentMethodsHandle, Props>(
                 {/* Method detail fields */}
                 {m.enabled && (
                   <div className="px-4 pb-4 grid grid-cols-1 sm:grid-cols-2 gap-3 border-t border-indigo-100 pt-3">
-                    {type === 'deel' ? (
+
+                    {/* ── Deel ── */}
+                    {type === 'deel' && (
                       <div className="sm:col-span-2">
                         <label className="block text-xs font-medium text-gray-600 mb-1">
-                          Deel Account Details <span className="text-red-500">*</span>
+                          Deel Worker ID <span className="text-red-500">*</span>
                         </label>
-                        <textarea
-                          value={m.deel_account_details}
-                          onChange={(e) => setField(type, 'deel_account_details', e.target.value)}
-                          rows={2}
-                          placeholder="Deel account email or ID"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                        <input
+                          type="text"
+                          value={m.deel_worker_id}
+                          onChange={(e) => setField(type, 'deel_worker_id', e.target.value)}
+                          placeholder="Numeric ID from Deel profile → General Information → Worker ID"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                       </div>
-                    ) : (
+                    )}
+
+                    {/* ── CCB ── */}
+                    {type === 'ccb' && (
+                      <>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Chinese Name (中文姓名) <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={m.chinese_name}
+                            onChange={(e) => setField(type, 'chinese_name', e.target.value)}
+                            placeholder="如：张三"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                          <p className="mt-1 text-xs text-amber-600">Name must be in Chinese characters</p>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Account Number <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={m.account_number}
+                            onChange={(e) => setField(type, 'account_number', e.target.value)}
+                            placeholder="CCB account number"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {/* ── Non-CCB Chinese Bank ── */}
+                    {type === 'non_ccb' && (
+                      <>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Beneficiary Name <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={m.beneficiary_name}
+                            onChange={(e) => setField(type, 'beneficiary_name', e.target.value)}
+                            placeholder="Full legal name"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Account Number <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={m.account_number}
+                            onChange={(e) => setField(type, 'account_number', e.target.value)}
+                            placeholder="Account number"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Branch Code (联行号)
+                          </label>
+                          <input
+                            type="text"
+                            value={m.branch}
+                            onChange={(e) => setField(type, 'branch', e.target.value)}
+                            placeholder="12-digit branch code"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {/* ── HSBC ── */}
+                    {type === 'hsbc' && (
+                      <>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Beneficiary Name <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={m.beneficiary_name}
+                            onChange={(e) => setField(type, 'beneficiary_name', e.target.value)}
+                            placeholder="Full legal name"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Account Number <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={m.account_number}
+                            onChange={(e) => setField(type, 'account_number', e.target.value)}
+                            placeholder="HSBC HK account number"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Bank Name
+                          </label>
+                          <input
+                            type="text"
+                            value={m.bank_name}
+                            onChange={(e) => setField(type, 'bank_name', e.target.value)}
+                            placeholder="e.g. HSBC Hong Kong"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Bank Code
+                          </label>
+                          <input
+                            type="text"
+                            value={m.bank_code}
+                            onChange={(e) => setField(type, 'bank_code', e.target.value)}
+                            placeholder="e.g. 004"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {/* ── Other Bank ── */}
+                    {type === 'other' && (
                       <>
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">
@@ -255,6 +413,16 @@ const PaymentMethodsSection = forwardRef<PaymentMethodsHandle, Props>(
                           />
                         </div>
                         <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Bank Name</label>
+                          <input
+                            type="text"
+                            value={m.bank_name}
+                            onChange={(e) => setField(type, 'bank_name', e.target.value)}
+                            placeholder="Bank name"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">Branch</label>
                           <input
                             type="text"
@@ -264,50 +432,21 @@ const PaymentMethodsSection = forwardRef<PaymentMethodsHandle, Props>(
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                         </div>
-                        {(type === 'ccb' || type === 'hsbc') && (
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">
-                              SWIFT Code
-                            </label>
-                            <input
-                              type="text"
-                              value={m.swift_code}
-                              onChange={(e) => setField(type, 'swift_code', e.target.value)}
-                              placeholder="e.g. PCBCCNBJ"
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
-                          </div>
-                        )}
-                        {(type === 'non_ccb' || type === 'other') && (
-                          <>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-600 mb-1">
-                                Bank Name
-                              </label>
-                              <input
-                                type="text"
-                                value={m.bank_name}
-                                onChange={(e) => setField(type, 'bank_name', e.target.value)}
-                                placeholder="Bank name"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-600 mb-1">
-                                SWIFT Code
-                              </label>
-                              <input
-                                type="text"
-                                value={m.swift_code}
-                                onChange={(e) => setField(type, 'swift_code', e.target.value)}
-                                placeholder="SWIFT / BIC"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                              />
-                            </div>
-                          </>
-                        )}
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            SWIFT Code (optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={m.swift_code}
+                            onChange={(e) => setField(type, 'swift_code', e.target.value)}
+                            placeholder="SWIFT / BIC"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
                       </>
                     )}
+
                   </div>
                 )}
               </div>

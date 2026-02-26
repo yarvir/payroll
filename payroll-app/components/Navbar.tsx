@@ -18,8 +18,9 @@ const baseNavLinks = [
 ]
 
 const settingsLinks = [
-  { href: '/settings/roles',       label: 'Roles' },
-  { href: '/settings/permissions', label: 'Permissions' },
+  { href: '/settings/roles',          label: 'Roles' },
+  { href: '/settings/permissions',    label: 'Permissions' },
+  { href: '/settings/payment-config', label: 'Payment Config' },
 ]
 
 export default function Navbar({ profile }: NavbarProps) {

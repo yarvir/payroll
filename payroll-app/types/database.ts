@@ -143,12 +143,18 @@ export type Database = {
           employee_id: string
           method_type: 'deel' | 'ccb' | 'non_ccb' | 'hsbc' | 'other'
           percentage: number
-          deel_account_details: string | null
+          // Deel
+          deel_worker_id: string | null
+          // CCB
+          chinese_name: string | null
+          // Shared bank fields
           beneficiary_name: string | null
           account_number: string | null
           branch: string | null
           swift_code: string | null
           bank_name: string | null
+          // HSBC
+          bank_code: string | null
           created_at: string
           updated_at: string
         }
@@ -157,12 +163,14 @@ export type Database = {
           employee_id: string
           method_type: 'deel' | 'ccb' | 'non_ccb' | 'hsbc' | 'other'
           percentage: number
-          deel_account_details?: string | null
+          deel_worker_id?: string | null
+          chinese_name?: string | null
           beneficiary_name?: string | null
           account_number?: string | null
           branch?: string | null
           swift_code?: string | null
           bank_name?: string | null
+          bank_code?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -171,12 +179,34 @@ export type Database = {
           employee_id?: string
           method_type?: 'deel' | 'ccb' | 'non_ccb' | 'hsbc' | 'other'
           percentage?: number
-          deel_account_details?: string | null
+          deel_worker_id?: string | null
+          chinese_name?: string | null
           beneficiary_name?: string | null
           account_number?: string | null
           branch?: string | null
           swift_code?: string | null
           bank_name?: string | null
+          bank_code?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      company_settings: {
+        Row: {
+          id: number
+          ccb_account_number: string | null
+          hsbc_hk_account_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          ccb_account_number?: string | null
+          hsbc_hk_account_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ccb_account_number?: string | null
+          hsbc_hk_account_number?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -195,12 +225,14 @@ export type PaymentMethodType = 'deel' | 'ccb' | 'non_ccb' | 'hsbc' | 'other'
 export interface PaymentMethodInput {
   method_type: PaymentMethodType
   percentage: number
-  deel_account_details?: string | null
+  deel_worker_id?: string | null
+  chinese_name?: string | null
   beneficiary_name?: string | null
   account_number?: string | null
   branch?: string | null
   swift_code?: string | null
   bank_name?: string | null
+  bank_code?: string | null
 }
 
 export type Profile = Database['public']['Tables']['profiles']['Row']
@@ -210,3 +242,4 @@ export type EmployeeStatus = Employee['status']
 export type Role = Database['public']['Tables']['roles']['Row']
 export type RolePermission = Database['public']['Tables']['role_permissions']['Row']
 export type EmployeePaymentMethod = Database['public']['Tables']['employee_payment_methods']['Row']
+export type CompanySettings = Database['public']['Tables']['company_settings']['Row']
