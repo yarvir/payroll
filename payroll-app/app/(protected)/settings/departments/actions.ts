@@ -71,7 +71,6 @@ export async function deleteDepartment(id: string): Promise<{ error?: string }> 
     .single()
 
   if (!dept) return { error: 'Department not found.' }
-  if (dept.type === 'builtin') return { error: 'Built-in departments cannot be deleted.' }
 
   // Block deletion if any employees are assigned to this department
   const { data: assigned } = await admin
