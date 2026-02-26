@@ -4,15 +4,16 @@ import { useTransition, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { addEmployee } from './actions'
 import PaymentMethodsSection, { type PaymentMethodsHandle } from './PaymentMethodsSection'
-import type { EmployeeGroup } from '@/types/database'
+import type { EmployeeGroup, Department } from '@/types/database'
 
 interface Props {
   groups: EmployeeGroup[]
+  departments: Department[]
   defaultEmployeeNumber?: string
   onClose: () => void
 }
 
-export default function AddEmployeeModal({ groups, defaultEmployeeNumber, onClose }: Props) {
+export default function AddEmployeeModal({ groups, departments, defaultEmployeeNumber, onClose }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -151,14 +152,9 @@ export default function AddEmployeeModal({ groups, defaultEmployeeNumber, onClos
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                 >
                   <option value="">No Department</option>
-                  <option value="Engineering">Engineering</option>
-                  <option value="Finance">Finance</option>
-                  <option value="HR">HR</option>
-                  <option value="Operations">Operations</option>
-                  <option value="Sales">Sales</option>
-                  <option value="Marketing">Marketing</option>
-                  <option value="Support">Support</option>
-                  <option value="Management">Management</option>
+                  {departments.map(d => (
+                    <option key={d.id} value={d.name}>{d.name}</option>
+                  ))}
                 </select>
               </div>
               <div>

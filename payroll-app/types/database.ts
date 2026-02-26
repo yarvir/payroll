@@ -191,6 +191,26 @@ export type Database = {
         }
         Relationships: []
       }
+      departments: {
+        Row: {
+          id: string
+          name: string
+          type: 'builtin' | 'custom'
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          type?: 'builtin' | 'custom'
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          type?: 'builtin' | 'custom'
+        }
+        Relationships: []
+      }
       company_settings: {
         Row: {
           id: number
@@ -243,3 +263,4 @@ export type Role = Database['public']['Tables']['roles']['Row']
 export type RolePermission = Database['public']['Tables']['role_permissions']['Row']
 export type EmployeePaymentMethod = Database['public']['Tables']['employee_payment_methods']['Row']
 export type CompanySettings = Database['public']['Tables']['company_settings']['Row']
+export type Department = Database['public']['Tables']['departments']['Row']

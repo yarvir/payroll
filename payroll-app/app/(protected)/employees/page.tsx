@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getUserPermissions } from '@/lib/permissions'
 import EmployeeTable from './EmployeeTable'
 import AddEmployeeButton from './AddEmployeeButton'
-import type { Employee, EmployeeGroup, Profile } from '@/types/database'
+import type { Employee, EmployeeGroup, Department, Profile } from '@/types/database'
 
 export default async function EmployeesPage() {
   const supabase = createClient()
@@ -25,12 +25,15 @@ export default async function EmployeesPage() {
   const viewSensitive = perms.view_sensitive_employees
   const manageEmployees = perms.manage_employees
 
-  const { data: groups } = await supabase.from('employee_groups').select('*').order('name')
-
-  const { data: employees } = await supabase
-    .from('employees')
-    .select('*, employee_groups(id, name)')
-    .order('full_name')
+  const [
+    { data: groups },
+    { data: employees },
+    { data: departments },
+  ] = await Promise.all([
+    supabase.from('employee_groups').select('*').order('name'),
+    supabase.from('employees').select('*, employee_groups(id, name)').order('full_name'),
+    supabase.from('departments').select('*').order('name'),
+  ])
 
   return (
     <div>
@@ -45,6 +48,7 @@ export default async function EmployeesPage() {
         {manageEmployees && (
           <AddEmployeeButton
             groups={(groups ?? []) as EmployeeGroup[]}
+            departments={(departments ?? []) as Department[]}
           />
         )}
       </div>
@@ -56,6 +60,7 @@ export default async function EmployeesPage() {
           })[]
         }
         groups={(groups ?? []) as EmployeeGroup[]}
+        departments={(departments ?? []) as Department[]}
         viewSensitive={viewSensitive}
         userRole={userRole}
       />
