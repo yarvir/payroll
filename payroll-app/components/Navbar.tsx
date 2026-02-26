@@ -20,6 +20,7 @@ const baseNavLinks = [
 const settingsLinks = [
   { href: '/settings/roles',          label: 'Roles' },
   { href: '/settings/permissions',    label: 'Permissions' },
+  { href: '/settings/departments',    label: 'Departments' },
   { href: '/settings/payment-config', label: 'Payment Config' },
 ]
 

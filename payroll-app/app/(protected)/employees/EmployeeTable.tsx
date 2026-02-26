@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import ExcelJS from 'exceljs'
 import { canManageEmployees } from '@/lib/roles'
 import EditEmployeeModal from './EditEmployeeModal'
-import type { Employee, EmployeeGroup } from '@/types/database'
+import type { Employee, EmployeeGroup, Department } from '@/types/database'
 
 // ── Column definitions ────────────────────────────────────────────────────────
 
@@ -46,6 +46,7 @@ interface EmployeeWithGroup extends Employee {
 interface EmployeeTableProps {
   employees: EmployeeWithGroup[]
   groups: EmployeeGroup[]
+  departments: Department[]
   viewSensitive: boolean  // can see sensitive employee records + badge (owner, hr, accountant)
   userRole: string
 }
@@ -67,6 +68,7 @@ const STATUS_LABELS: Record<Employee['status'], string> = {
 export default function EmployeeTable({
   employees,
   groups,
+  departments,
   viewSensitive,
   userRole,
 }: EmployeeTableProps) {
@@ -592,6 +594,7 @@ export default function EmployeeTable({
         <EditEmployeeModal
           employee={editingEmployee}
           groups={groups}
+          departments={departments}
           onClose={() => setEditingEmployee(null)}
         />
       )}

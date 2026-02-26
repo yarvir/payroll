@@ -3,13 +3,14 @@
 import { useState, useTransition } from 'react'
 import AddEmployeeModal from './AddEmployeeModal'
 import { getNextEmployeeNumber } from './actions'
-import type { EmployeeGroup } from '@/types/database'
+import type { EmployeeGroup, Department } from '@/types/database'
 
 interface Props {
   groups: EmployeeGroup[]
+  departments: Department[]
 }
 
-export default function AddEmployeeButton({ groups }: Props) {
+export default function AddEmployeeButton({ groups, departments }: Props) {
   const [open, setOpen] = useState(false)
   const [nextNumber, setNextNumber] = useState('')
   const [loading, startTransition] = useTransition()
@@ -38,6 +39,7 @@ export default function AddEmployeeButton({ groups }: Props) {
       {open && (
         <AddEmployeeModal
           groups={groups}
+          departments={departments}
           defaultEmployeeNumber={nextNumber}
           onClose={() => setOpen(false)}
         />
