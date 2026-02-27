@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import EditEmployeeModal from '../EditEmployeeModal'
+import PaymentMethodsSection, { type PaymentMethodsHandle } from '../PaymentMethodsSection'
+import { updateEmployeeInfo, updateEmployeePayment } from '../actions'
 import type { Employee, EmployeeGroup, Department, PaymentMethodInput } from '@/types/database'
 
 // ── Status helpers ────────────────────────────────────────────────────────────
@@ -53,7 +54,10 @@ export default function EmployeeDetailClient({
 }: Props) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('info')
-  const [editOpen, setEditOpen] = useState(false)
+  const [infoEditing, setInfoEditing] = useState(false)
+  const [bankEditing, setBankEditing] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+  const [editPending, startEditTransition] = useTransition()
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'info',      label: 'Info' },
@@ -63,9 +67,46 @@ export default function EmployeeDetailClient({
     { id: 'loans',     label: 'Loans' },
   ]
 
-  function handleEditClose() {
-    setEditOpen(false)
-    router.refresh()
+  function handleTabChange(tab: Tab) {
+    setInfoEditing(false)
+    setBankEditing(false)
+    setEditError(null)
+    setActiveTab(tab)
+  }
+
+  const isEditing = (activeTab === 'info' && infoEditing) || (activeTab === 'bank' && bankEditing)
+  const canEdit = canManage && (activeTab === 'info' || activeTab === 'bank')
+
+  function handleEdit() {
+    setEditError(null)
+    if (activeTab === 'info') setInfoEditing(true)
+    else if (activeTab === 'bank') setBankEditing(true)
+  }
+
+  function handleInfoSave(formData: FormData) {
+    startEditTransition(async () => {
+      const result = await updateEmployeeInfo(employee.id, formData)
+      if (result.error) {
+        setEditError(result.error)
+      } else {
+        setInfoEditing(false)
+        setEditError(null)
+        router.refresh()
+      }
+    })
+  }
+
+  function handleBankSave(methods: PaymentMethodInput[]) {
+    startEditTransition(async () => {
+      const result = await updateEmployeePayment(employee.id, methods)
+      if (result.error) {
+        setEditError(result.error)
+      } else {
+        setBankEditing(false)
+        setEditError(null)
+        router.refresh()
+      }
+    })
   }
 
   return (
@@ -126,10 +167,10 @@ export default function EmployeeDetailClient({
             </div>
           </div>
 
-          {/* Edit button — managers only */}
-          {canManage && (
+          {/* Edit button — managers only, editable tabs only, not while editing */}
+          {canEdit && !isEditing && (
             <button
-              onClick={() => setEditOpen(true)}
+              onClick={handleEdit}
               className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition flex-shrink-0"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -149,7 +190,7 @@ export default function EmployeeDetailClient({
           {tabs.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
               className={`px-6 py-3.5 text-sm font-medium whitespace-nowrap transition border-b-2 -mb-px ${
                 activeTab === tab.id
                   ? 'border-indigo-600 text-indigo-600'
@@ -164,10 +205,27 @@ export default function EmployeeDetailClient({
         {/* Tab panels */}
         <div className="p-6">
           {activeTab === 'info' && (
-            <InfoTab employee={employee} viewSensitive={viewSensitive} />
+            <InfoTab
+              employee={employee}
+              viewSensitive={viewSensitive}
+              groups={groups}
+              departments={departments}
+              editing={infoEditing}
+              saving={editPending}
+              error={editError}
+              onSave={handleInfoSave}
+              onCancel={() => { setInfoEditing(false); setEditError(null) }}
+            />
           )}
           {activeTab === 'bank' && (
-            <BankTab paymentMethods={paymentMethods} />
+            <BankTab
+              paymentMethods={paymentMethods}
+              editing={bankEditing}
+              saving={editPending}
+              error={editError}
+              onSave={handleBankSave}
+              onCancel={() => { setBankEditing(false); setEditError(null) }}
+            />
           )}
           {activeTab === 'contracts' && (
             <PlaceholderTab label="Contracts" message="Contract history, active contract, benefits, and deductions are coming in Phase 3." />
@@ -180,16 +238,6 @@ export default function EmployeeDetailClient({
           )}
         </div>
       </div>
-
-      {/* Edit modal */}
-      {editOpen && (
-        <EditEmployeeModal
-          employee={employee}
-          groups={groups}
-          departments={departments}
-          onClose={handleEditClose}
-        />
-      )}
     </div>
   )
 }
@@ -199,9 +247,23 @@ export default function EmployeeDetailClient({
 function InfoTab({
   employee,
   viewSensitive,
+  groups,
+  departments,
+  editing,
+  saving,
+  error,
+  onSave,
+  onCancel,
 }: {
   employee: Employee & { employee_groups: EmployeeGroup | null }
   viewSensitive: boolean
+  groups: EmployeeGroup[]
+  departments: Department[]
+  editing: boolean
+  saving: boolean
+  error: string | null
+  onSave: (formData: FormData) => void
+  onCancel: () => void
 }) {
   const hireDate = employee.hire_date
     ? new Date(employee.hire_date).toLocaleDateString('en-GB', {
@@ -209,32 +271,225 @@ function InfoTab({
       })
     : null
 
-  return (
-    <div className="space-y-8">
-      <InfoSection title="Basic Info">
-        <Field label="Employee Number" value={employee.employee_number} mono />
-        <Field label="Full Name"       value={employee.full_name} />
-        <Field label="Email"           value={employee.email} />
-        <Field label="Hire Date"       value={hireDate} />
-        <Field label="Birthdate"       value={null} />
-      </InfoSection>
+  if (!editing) {
+    return (
+      <div className="space-y-8">
+        <InfoSection title="Basic Info">
+          <Field label="Employee Number" value={employee.employee_number} mono />
+          <Field label="Full Name"       value={employee.full_name} />
+          <Field label="Email"           value={employee.email} />
+          <Field label="Hire Date"       value={hireDate} />
+          <Field label="Birthdate"       value={null} />
+        </InfoSection>
 
-      <InfoSection title="Job Details">
-        <Field label="Position"   value={employee.position} />
-        <Field label="Department" value={employee.department} />
-        <Field label="Group"      value={employee.employee_groups?.name ?? null} />
-        <Field label="Status"     value={STATUS_LABELS[employee.status]} />
-        {viewSensitive && (
-          <Field label="Sensitive" value={employee.is_sensitive ? 'Yes' : 'No'} />
-        )}
-      </InfoSection>
-    </div>
+        <InfoSection title="Job Details">
+          <Field label="Position"   value={employee.position} />
+          <Field label="Department" value={employee.department} />
+          <Field label="Group"      value={employee.employee_groups?.name ?? null} />
+          <Field label="Status"     value={STATUS_LABELS[employee.status]} />
+          {viewSensitive && (
+            <Field label="Sensitive" value={employee.is_sensitive ? 'Yes' : 'No'} />
+          )}
+        </InfoSection>
+      </div>
+    )
+  }
+
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); onSave(new FormData(e.currentTarget)) }}
+      className="space-y-8"
+    >
+      {error && (
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      <section>
+        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
+          Basic Info
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Employee Number <span className="text-red-500">*</span>
+            </label>
+            <input
+              name="employee_number"
+              type="text"
+              required
+              defaultValue={employee.employee_number}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Full Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              name="full_name"
+              type="text"
+              required
+              defaultValue={employee.full_name}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Email <span className="text-red-500">*</span>
+            </label>
+            <input
+              name="email"
+              type="email"
+              required
+              defaultValue={employee.email}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Hire Date</label>
+            <input
+              name="hire_date"
+              type="date"
+              defaultValue={employee.hire_date ?? ''}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
+          Job Details
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Position</label>
+            <input
+              name="position"
+              type="text"
+              defaultValue={employee.position ?? ''}
+              placeholder="Software Engineer"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Department</label>
+            <select
+              name="department"
+              defaultValue={employee.department ?? ''}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+            >
+              <option value="">No Department</option>
+              {departments.map(d => (
+                <option key={d.id} value={d.name}>{d.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Group</label>
+            <select
+              name="group_id"
+              defaultValue={employee.group_id ?? ''}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+            >
+              <option value="">No Group</option>
+              {groups.map(g => (
+                <option key={g.id} value={g.id}>{g.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
+            <select
+              name="status"
+              defaultValue={employee.status}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="on_leave">On Leave</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={saving}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={saving}
+          className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition"
+        >
+          {saving ? 'Saving…' : 'Save Changes'}
+        </button>
+      </div>
+    </form>
   )
 }
 
 // ── Bank & Payment tab ────────────────────────────────────────────────────────
 
-function BankTab({ paymentMethods }: { paymentMethods: PaymentMethodInput[] }) {
+function BankTab({
+  paymentMethods,
+  editing,
+  saving,
+  error,
+  onSave,
+  onCancel,
+}: {
+  paymentMethods: PaymentMethodInput[]
+  editing: boolean
+  saving: boolean
+  error: string | null
+  onSave: (methods: PaymentMethodInput[]) => void
+  onCancel: () => void
+}) {
+  const paymentRef = useRef<PaymentMethodsHandle>(null)
+
+  if (editing) {
+    return (
+      <div className="space-y-4">
+        {error && (
+          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+        <PaymentMethodsSection ref={paymentRef} initialData={paymentMethods} />
+        <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={saving}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const err = paymentRef.current?.validate() ?? null
+              if (err) return
+              onSave(paymentRef.current?.getPaymentMethods() ?? [])
+            }}
+            disabled={saving}
+            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition"
+          >
+            {saving ? 'Saving…' : 'Save Changes'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (paymentMethods.length === 0) {
     return (
       <div className="text-center py-14">
