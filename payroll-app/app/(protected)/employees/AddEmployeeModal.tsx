@@ -34,8 +34,7 @@ export default function AddEmployeeModal({ groups, departments, defaultEmployeeN
       if (result.error) {
         setError(result.error)
       } else {
-        router.refresh()
-        onClose()
+        router.push(`/employees/${result.id}`)
       }
     })
   }
