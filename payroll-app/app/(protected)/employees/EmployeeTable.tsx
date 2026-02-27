@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import ExcelJS from 'exceljs'
 import { canManageEmployees } from '@/lib/roles'
-import EditEmployeeModal from './EditEmployeeModal'
 import type { Employee, EmployeeGroup, Department } from '@/types/database'
 
 // ── Column definitions ────────────────────────────────────────────────────────
@@ -76,7 +76,6 @@ export default function EmployeeTable({
   const [selectedGroup, setSelectedGroup] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [showSensitiveOnly, setShowSensitiveOnly] = useState(false)
-  const [editingEmployee, setEditingEmployee] = useState<EmployeeWithGroup | null>(null)
   const [exporting, setExporting] = useState(false)
   const [groupBy, setGroupBy] = useState<'group' | 'department'>('group')
   const [columnsOpen, setColumnsOpen] = useState(false)
@@ -696,7 +695,6 @@ export default function EmployeeTable({
                     viewSensitive={viewSensitive}
                     canManage={canManage}
                     cols={visibleColumns}
-                    onEdit={setEditingEmployee}
                   />
                 ))}
               </div>
@@ -722,7 +720,6 @@ export default function EmployeeTable({
                     viewSensitive={viewSensitive}
                     canManage={canManage}
                     cols={visibleColumns}
-                    onEdit={setEditingEmployee}
                   />
                 ))}
               </div>
@@ -731,15 +728,6 @@ export default function EmployeeTable({
         </div>
       )}
 
-      {/* Edit modal */}
-      {editingEmployee && (
-        <EditEmployeeModal
-          employee={editingEmployee}
-          groups={groups}
-          departments={departments}
-          onClose={() => setEditingEmployee(null)}
-        />
-      )}
     </div>
   )
 }
@@ -751,18 +739,20 @@ function EmployeeRow({
   viewSensitive,
   canManage,
   cols,
-  onEdit,
 }: {
   employee: EmployeeWithGroup
   viewSensitive: boolean
   canManage: boolean
   cols: Set<ColumnId>
-  onEdit: (emp: EmployeeWithGroup) => void
 }) {
+  const router = useRouter()
   const show = (id: ColumnId) => cols.has(id)
 
   return (
-    <div className="group px-5 py-4 flex items-center gap-4 hover:bg-gray-50 transition">
+    <div
+      className="group px-5 py-4 flex items-center gap-4 hover:bg-gray-50 transition cursor-pointer"
+      onClick={() => router.push(`/employees/${emp.id}`)}
+    >
       {/* Avatar — always shown */}
       <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold text-sm flex-shrink-0">
         {emp.full_name.charAt(0).toUpperCase()}
@@ -827,11 +817,11 @@ function EmployeeRow({
         </span>
       )}
 
-      {/* Edit button — visible on row hover for managers */}
+      {/* View/edit button — visible on row hover for managers */}
       {canManage && (
         <button
-          onClick={() => onEdit(emp)}
-          title="Edit employee"
+          onClick={e => { e.stopPropagation(); router.push(`/employees/${emp.id}`) }}
+          title="View employee"
           className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition opacity-0 group-hover:opacity-100 flex-shrink-0"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
