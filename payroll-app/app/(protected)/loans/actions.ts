@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { checkPermission } from '@/lib/permissions'
 import type { Profile, Loan, LoanInstallment } from '@/types/database'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -32,11 +33,16 @@ async function getCurrentProfile(): Promise<Profile | null> {
   return data as Profile | null
 }
 
-/** Returns the admin client if the current user is owner or hr, null otherwise. */
+/**
+ * Returns the admin client if the current user has loan management permission
+ * (owner always; hr and any custom role with manage_employees = true).
+ * Returns null if unauthenticated or permission is denied.
+ */
 async function requireLoanManage() {
   const profile = await getCurrentProfile()
   if (!profile) return null
-  if (!['owner', 'hr'].includes(profile.role)) return null
+  const allowed = await checkPermission(profile.role, 'manage_employees')
+  if (!allowed) return null
   return createAdminClient()
 }
 
