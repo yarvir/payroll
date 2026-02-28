@@ -40,14 +40,6 @@ async function requireLoanManage() {
   return createAdminClient()
 }
 
-/** Returns the admin client if the current user can view loans (owner/hr/accountant). */
-async function requireLoanView() {
-  const profile = await getCurrentProfile()
-  if (!profile) return null
-  if (!['owner', 'hr', 'accountant'].includes(profile.role)) return null
-  return createAdminClient()
-}
-
 // ── Read ──────────────────────────────────────────────────────────────────────
 
 export async function getEmployeeLoans(employeeId: string): Promise<LoanWithInstallments[]> {
