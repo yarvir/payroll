@@ -121,7 +121,7 @@ export default function AddEmployeeModal({ groups, departments, defaultEmployeeN
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Birthdate</label>
                 <input
-                  name="birthdate"
+                  name="birth_date"
                   type="date"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />

@@ -65,6 +65,7 @@ export async function addEmployee(
       | 'inactive'
       | 'on_leave'
   const hire_date = (formData.get('hire_date') as string | null) || null
+  const birth_date = (formData.get('birth_date') as string | null) || null
 
   if (!employee_number || !full_name || !email) {
     return { error: 'Employee number, full name, and email are required.' }
@@ -81,6 +82,7 @@ export async function addEmployee(
       group_id,
       status,
       hire_date,
+      birth_date,
     })
     .select('id')
     .single()
@@ -211,6 +213,7 @@ export async function updateEmployeeInfo(
       | 'inactive'
       | 'on_leave'
   const hire_date = (formData.get('hire_date') as string | null) || null
+  const birth_date = (formData.get('birth_date') as string | null) || null
 
   if (!employee_number || !full_name || !email) {
     return { error: 'Employee number, full name, and email are required.' }
@@ -218,7 +221,7 @@ export async function updateEmployeeInfo(
 
   const { error } = await admin
     .from('employees')
-    .update({ employee_number, full_name, email, position, department, group_id, status, hire_date })
+    .update({ employee_number, full_name, email, position, department, group_id, status, hire_date, birth_date })
     .eq('id', id)
 
   if (error) {

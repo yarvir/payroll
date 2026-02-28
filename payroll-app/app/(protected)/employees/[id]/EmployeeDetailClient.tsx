@@ -271,6 +271,12 @@ function InfoTab({
       })
     : null
 
+  const birthDate = employee.birth_date
+    ? new Date(employee.birth_date).toLocaleDateString('en-GB', {
+        day: '2-digit', month: 'short', year: 'numeric',
+      })
+    : null
+
   if (!editing) {
     return (
       <div className="space-y-8">
@@ -279,7 +285,7 @@ function InfoTab({
           <Field label="Full Name"       value={employee.full_name} />
           <Field label="Email"           value={employee.email} />
           <Field label="Hire Date"       value={hireDate} />
-          <Field label="Birthdate"       value={null} />
+          <Field label="Birthdate"       value={birthDate} />
         </InfoSection>
 
         <InfoSection title="Job Details">
@@ -353,6 +359,15 @@ function InfoTab({
               name="hire_date"
               type="date"
               defaultValue={employee.hire_date ?? ''}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Birthdate</label>
+            <input
+              name="birth_date"
+              type="date"
+              defaultValue={employee.birth_date ?? ''}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
