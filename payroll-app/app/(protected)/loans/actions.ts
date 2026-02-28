@@ -140,7 +140,7 @@ export async function createLoan(formData: FormData): Promise<{ error?: string }
     )
   }
 
-  // monthly_deduction stores the standard/average amount for display in the loans list
+  // monthly_deduction stores the average amount for display in the loans list
   const monthly_deduction = parseFloat((total_amount / number_of_installments).toFixed(2))
 
   // Create the loan record

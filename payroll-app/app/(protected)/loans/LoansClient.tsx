@@ -119,6 +119,7 @@ export default function LoansClient({ loans, groups, employees, canManage }: Pro
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Group</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">CCY</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Monthly</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Installments</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Remaining</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Start Date</th>
@@ -150,6 +151,9 @@ export default function LoansClient({ loans, groups, employees, canManage }: Pro
                       </td>
                       <td className="px-4 py-3 text-gray-500 font-mono text-xs">
                         {loan.currency}
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-600 font-mono">
+                        {fmt(loan.monthly_deduction)}
                       </td>
                       <td className="px-4 py-3 text-center text-gray-600">
                         {paidCount}/{loan.number_of_installments}

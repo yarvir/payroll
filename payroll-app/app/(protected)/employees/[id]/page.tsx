@@ -52,6 +52,10 @@ export default async function EmployeeDetailPage({ params, searchParams }: Props
     getEmployeeLoans(params.id),
   ])
 
+  // Validate the tab param so we only forward known tab names
+  const validTabs = ['info', 'bank', 'contracts', 'leave', 'loans']
+  const initialTab = validTabs.includes(searchParams.tab ?? '') ? searchParams.tab : undefined
+
   return (
     <EmployeeDetailClient
       employee={employee}
@@ -61,7 +65,7 @@ export default async function EmployeeDetailPage({ params, searchParams }: Props
       canManage={canManage}
       viewSensitive={viewSensitive}
       loans={loans}
-      initialTab={searchParams.tab}
+      initialTab={initialTab}
     />
   )
 }
