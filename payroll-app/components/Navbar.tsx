@@ -31,6 +31,9 @@ export default function Navbar({ profile }: NavbarProps) {
 
   const navLinks = [
     ...baseNavLinks,
+    ...(['owner', 'hr', 'accountant'].includes(profile.role)
+      ? [{ href: '/loans', label: 'Loans' }]
+      : []),
     ...(profile.role === 'owner' ? [{ href: '/users', label: 'Users' }] : []),
   ]
 
