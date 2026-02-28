@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import PaymentMethodsSection, { type PaymentMethodsHandle } from '../PaymentMethodsSection'
 import { updateEmployeeInfo, updateEmployeePayment } from '../actions'
-import { markInstallmentPaid, cancelLoan } from '../../loans/actions'
+import { markInstallmentPaid, cancelLoan, getLoanContractUrl } from '../../loans/actions'
 import AddLoanModal from '../../loans/AddLoanModal'
 import type { Employee, EmployeeGroup, Department, PaymentMethodInput, Loan, LoanInstallment } from '@/types/database'
 
@@ -573,6 +573,27 @@ const LOAN_STATUS_LABELS: Record<string, string> = {
   cancelled: 'Cancelled',
 }
 
+const DEDUCTION_LABELS: Record<string, string> = {
+  salary:   'Salary',
+  bonus:    'Bonus',
+  flexible: 'Flexible',
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  salary:               'Salary',
+  kpi_bonus:            'KPI Bonus',
+  end_of_contract_bonus:'End of Contract Bonus',
+  manual:               'Manual',
+}
+
+const PAYMENT_SOURCES = [
+  { value: 'salary',               label: 'Salary' },
+  { value: 'kpi_bonus',            label: 'KPI Bonus' },
+  { value: 'end_of_contract_bonus', label: 'End of Contract Bonus' },
+  { value: 'manual',               label: 'Manual' },
+]
+
+
 function LoansTab({
   loans,
   canManage,
@@ -588,12 +609,25 @@ function LoansTab({
   const [showAddLoan, setShowAddLoan] = useState(false)
   const [cancellingId, setCancellingId] = useState<string | null>(null)
 
-  function handleMarkPaid(installmentId: string, loanId: string) {
+  // Mark-paid flow: pick installment then choose source
+  const [markingPaid, setMarkingPaid] = useState<{ installmentId: string; loanId: string } | null>(null)
+  const [paymentSource, setPaymentSource] = useState('salary')
+
+  // Contract viewing
+  const [contractLoading, setContractLoading] = useState<string | null>(null)
+
+  function handleMarkPaidClick(installmentId: string, loanId: string) {
+    setMarkingPaid({ installmentId, loanId })
+    setPaymentSource('salary')
+  }
+
+  function handleMarkPaidConfirm() {
+    if (!markingPaid) return
     setActionError(null)
     startTransition(async () => {
-      const result = await markInstallmentPaid(installmentId, loanId)
+      const result = await markInstallmentPaid(markingPaid.installmentId, markingPaid.loanId, paymentSource)
       if (result.error) setActionError(result.error)
-      else router.refresh()
+      else { setMarkingPaid(null); router.refresh() }
     })
   }
 
@@ -605,6 +639,23 @@ function LoansTab({
       else { setCancellingId(null); router.refresh() }
     })
   }
+
+  async function handleViewContract(loan: LoanWithInstallments) {
+    if (loan.contract_url && !loan.contract_file_path) {
+      window.open(loan.contract_url, '_blank')
+      return
+    }
+    if (loan.contract_file_path) {
+      setContractLoading(loan.id)
+      const result = await getLoanContractUrl(loan.contract_file_path)
+      setContractLoading(null)
+      if (result.error) { setActionError(result.error); return }
+      if (result.url) window.open(result.url, '_blank')
+      // If file path exists but also have an external URL, open both
+      if (loan.contract_url) window.open(loan.contract_url, '_blank')
+    }
+  }
+
 
   return (
     <div className="space-y-5">
@@ -646,10 +697,11 @@ function LoansTab({
         const installments = [...loan.loan_installments].sort(
           (a, b) => a.installment_number - b.installment_number
         )
-        const paidCount = installments.filter(i => i.status === 'paid').length
+        const paidInstallments = installments.filter(i => i.status === 'paid')
         const remainingCount = installments.filter(i => i.status === 'pending').length
-        const paidAmount = parseFloat((paidCount * loan.monthly_deduction).toFixed(2))
+        const paidAmount = parseFloat(paidInstallments.reduce((s, i) => s + i.amount, 0).toFixed(2))
         const remainingBalance = parseFloat(Math.max(0, loan.total_amount - paidAmount).toFixed(2))
+        const hasContract = !!(loan.contract_url || loan.contract_file_path)
 
         return (
           <div key={loan.id} className="border border-gray-200 rounded-xl overflow-hidden">
@@ -662,6 +714,16 @@ function LoansTab({
                 )}
               </div>
               <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                {/* View Contract button */}
+                {hasContract && (
+                  <button
+                    onClick={() => handleViewContract(loan)}
+                    disabled={contractLoading === loan.id}
+                    className="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition px-2 py-1 rounded hover:bg-indigo-50 disabled:opacity-50"
+                  >
+                    {contractLoading === loan.id ? 'Loading…' : 'View Contract'}
+                  </button>
+                )}
                 <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${LOAN_STATUS_STYLES[loan.status] ?? ''}`}>
                   {LOAN_STATUS_LABELS[loan.status] ?? loan.status}
                 </span>
@@ -676,8 +738,8 @@ function LoansTab({
               </div>
             </div>
 
-            {/* Summary row */}
-            <div className="grid grid-cols-3 divide-x divide-gray-100 border-b border-gray-100">
+            {/* Summary row — 4 cells */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-gray-100 border-b border-gray-100">
               <div className="px-5 py-3">
                 <p className="text-xs text-gray-500 mb-0.5">Total Amount</p>
                 <p className="font-semibold text-gray-900 text-sm">
@@ -685,7 +747,7 @@ function LoansTab({
                 </p>
               </div>
               <div className="px-5 py-3">
-                <p className="text-xs text-gray-500 mb-0.5">Monthly Deduction</p>
+                <p className="text-xs text-gray-500 mb-0.5">Avg. Installment</p>
                 <p className="font-semibold text-gray-900 text-sm">
                   {loan.currency} {loan.monthly_deduction.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </p>
@@ -696,6 +758,12 @@ function LoansTab({
                   {new Date(loan.start_date + 'T00:00:00').toLocaleDateString('en-GB', {
                     day: '2-digit', month: 'short', year: 'numeric',
                   })}
+                </p>
+              </div>
+              <div className="px-5 py-3">
+                <p className="text-xs text-gray-500 mb-0.5">Deduction Method</p>
+                <p className="font-semibold text-gray-900 text-sm">
+                  {DEDUCTION_LABELS[loan.deduction_method] ?? loan.deduction_method}
                 </p>
               </div>
             </div>
@@ -709,6 +777,7 @@ function LoansTab({
                     <th className="px-5 py-2.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Due Date</th>
                     <th className="px-5 py-2.5 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">Amount</th>
                     <th className="px-5 py-2.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                    <th className="px-5 py-2.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Source</th>
                     {canManage && loan.status === 'active' && (
                       <th className="px-5 py-2.5"></th>
                     )}
@@ -733,11 +802,14 @@ function LoansTab({
                           <span className="text-amber-600">⏳ Pending</span>
                         )}
                       </td>
+                      <td className="px-5 py-2.5 text-xs text-gray-500">
+                        {inst.payment_source ? SOURCE_LABELS[inst.payment_source] ?? inst.payment_source : '—'}
+                      </td>
                       {canManage && loan.status === 'active' && (
                         <td className="px-5 py-2.5 text-right">
                           {inst.status === 'pending' && (
                             <button
-                              onClick={() => handleMarkPaid(inst.id, loan.id)}
+                              onClick={() => handleMarkPaidClick(inst.id, loan.id)}
                               disabled={pending}
                               className="text-xs text-indigo-600 hover:text-indigo-800 font-medium disabled:opacity-40 transition"
                             >
@@ -776,6 +848,49 @@ function LoansTab({
           </div>
         )
       })}
+
+      {/* Mark-as-paid source selection modal */}
+      {markingPaid && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => !pending && setMarkingPaid(null)} />
+          <div className="relative bg-white rounded-xl shadow-xl p-6 max-w-sm w-full">
+            <h3 className="font-semibold text-gray-900 mb-1">Mark Installment as Paid</h3>
+            <p className="text-sm text-gray-500 mb-4">Select the payment source for this installment.</p>
+            <div className="space-y-2 mb-6">
+              {PAYMENT_SOURCES.map(src => (
+                <label key={src.value} className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="payment_source"
+                    value={src.value}
+                    checked={paymentSource === src.value}
+                    onChange={() => setPaymentSource(src.value)}
+                    className="accent-indigo-600"
+                  />
+                  <span className="text-sm text-gray-700">{src.label}</span>
+                </label>
+              ))}
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setMarkingPaid(null)}
+                disabled={pending}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleMarkPaidConfirm}
+                disabled={pending}
+                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition"
+              >
+                {pending ? 'Saving…' : 'Confirm Paid'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* Cancel confirmation modal */}
       {cancellingId && (

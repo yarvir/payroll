@@ -72,6 +72,19 @@ export async function getAllLoans(): Promise<LoanWithEmployee[]> {
   return (data ?? []) as unknown as LoanWithEmployee[]
 }
 
+// ── Contract URL ──────────────────────────────────────────────────────────────
+
+export async function getLoanContractUrl(filePath: string): Promise<{ url?: string; error?: string }> {
+  const profile = await getCurrentProfile()
+  if (!profile) return { error: 'Not authenticated.' }
+  const admin = createAdminClient()
+  const { data, error } = await admin.storage
+    .from('loan-contracts')
+    .createSignedUrl(filePath, 60 * 60) // 1-hour signed URL
+  if (error) return { error: error.message }
+  return { url: data.signedUrl }
+}
+
 // ── Create ────────────────────────────────────────────────────────────────────
 
 export async function createLoan(formData: FormData): Promise<{ error?: string }> {
@@ -85,6 +98,10 @@ export async function createLoan(formData: FormData): Promise<{ error?: string }
   const start_date = (formData.get('start_date') as string | null)?.trim()
   const notes = (formData.get('notes') as string | null)?.trim() || null
   const already_paid = parseInt((formData.get('already_paid') as string) || '0', 10)
+  const installment_mode = (formData.get('installment_mode') as string) || 'equal'
+  const deduction_method = (formData.get('deduction_method') as string) || 'salary'
+  const contract_url = (formData.get('contract_url') as string | null)?.trim() || null
+  const contractFile = formData.get('contract_file') as File | null
 
   if (!employee_id || !total_amount_raw || !currency || !installments_raw || !start_date) {
     return { error: 'All required fields must be filled in.' }
@@ -97,7 +114,33 @@ export async function createLoan(formData: FormData): Promise<{ error?: string }
   if (isNaN(number_of_installments) || number_of_installments < 1) return { error: 'Number of installments must be at least 1.' }
   if (isNaN(already_paid) || already_paid < 0) return { error: 'Installments already paid cannot be negative.' }
   if (already_paid > number_of_installments) return { error: 'Installments already paid cannot exceed total installments.' }
+  if (!['salary', 'bonus', 'flexible'].includes(deduction_method)) return { error: 'Invalid deduction method.' }
 
+  // Determine installment amounts
+  let installmentAmounts: number[]
+  if (installment_mode === 'custom') {
+    const customAmountsRaw = formData.getAll('custom_amounts') as string[]
+    if (customAmountsRaw.length !== number_of_installments) {
+      return { error: 'Number of custom amounts does not match number of installments.' }
+    }
+    installmentAmounts = customAmountsRaw.map(v => parseFloat(v))
+    if (installmentAmounts.some(a => isNaN(a) || a < 0)) {
+      return { error: 'All installment amounts must be valid non-negative numbers.' }
+    }
+    const sum = parseFloat(installmentAmounts.reduce((s, a) => s + a, 0).toFixed(2))
+    if (Math.abs(sum - total_amount) > 0.01) {
+      return { error: `Custom installment amounts sum to ${sum} but must equal the total loan amount of ${total_amount}.` }
+    }
+  } else {
+    // Equal: all same amount, last installment adjusted to absorb rounding
+    const regularAmount = parseFloat((total_amount / number_of_installments).toFixed(2))
+    const lastAmount = parseFloat((total_amount - regularAmount * (number_of_installments - 1)).toFixed(2))
+    installmentAmounts = Array.from({ length: number_of_installments }, (_, i) =>
+      i === number_of_installments - 1 ? lastAmount : regularAmount
+    )
+  }
+
+  // monthly_deduction stores the average amount for display in the loans list
   const monthly_deduction = parseFloat((total_amount / number_of_installments).toFixed(2))
 
   // Create the loan record
@@ -112,15 +155,17 @@ export async function createLoan(formData: FormData): Promise<{ error?: string }
       start_date,
       status: 'active',
       notes,
+      deduction_method: deduction_method as 'salary' | 'bonus' | 'flexible',
+      contract_url,
     })
     .select('id')
     .single()
 
   if (loanError) return { error: loanError.message }
 
-  // Generate all installment rows
+  // Generate installment rows
   const startDateObj = new Date(start_date + 'T00:00:00')
-  const installments = Array.from({ length: number_of_installments }, (_, i) => {
+  const installments = installmentAmounts.map((amount, i) => {
     const dueDate = new Date(startDateObj)
     dueDate.setMonth(dueDate.getMonth() + i)
     const isPaid = i < already_paid
@@ -128,9 +173,10 @@ export async function createLoan(formData: FormData): Promise<{ error?: string }
       loan_id: loan.id,
       installment_number: i + 1,
       due_date: dueDate.toISOString().split('T')[0],
-      amount: monthly_deduction,
+      amount,
       status: isPaid ? ('paid' as const) : ('pending' as const),
       paid_at: isPaid ? new Date().toISOString() : null,
+      payment_source: isPaid ? ('manual' as const) : null,
     }
   })
 
@@ -140,7 +186,26 @@ export async function createLoan(formData: FormData): Promise<{ error?: string }
     return { error: installError.message }
   }
 
-  // If all installments were already paid, mark the loan as paid immediately
+  // Handle contract file upload (after loan ID is known)
+  if (contractFile && contractFile.size > 0) {
+    const ext = contractFile.name.split('.').pop() ?? 'pdf'
+    const storagePath = `${employee_id}/${loan.id}/contract.${ext}`
+    const arrayBuffer = await contractFile.arrayBuffer()
+    const { error: uploadError } = await admin.storage
+      .from('loan-contracts')
+      .upload(storagePath, arrayBuffer, {
+        contentType: contractFile.type || 'application/pdf',
+        upsert: true,
+      })
+    if (uploadError) {
+      // Roll back the loan (cascades to installments)
+      await admin.from('loans').delete().eq('id', loan.id)
+      return { error: `Contract upload failed: ${uploadError.message}` }
+    }
+    await admin.from('loans').update({ contract_file_path: storagePath }).eq('id', loan.id)
+  }
+
+  // Auto-close if all installments were already paid
   if (already_paid >= number_of_installments) {
     await admin.from('loans').update({ status: 'paid', updated_at: new Date().toISOString() }).eq('id', loan.id)
   }
@@ -155,24 +220,32 @@ export async function createLoan(formData: FormData): Promise<{ error?: string }
 export async function markInstallmentPaid(
   installmentId: string,
   loanId: string,
+  paymentSource: string,
 ): Promise<{ error?: string }> {
   const admin = await requireLoanManage()
   if (!admin) return { error: 'You do not have permission to update installments.' }
 
+  const validSources = ['salary', 'kpi_bonus', 'end_of_contract_bonus', 'manual']
+  if (!validSources.includes(paymentSource)) return { error: 'Invalid payment source.' }
+
   const { error } = await admin
     .from('loan_installments')
-    .update({ status: 'paid', paid_at: new Date().toISOString() })
+    .update({
+      status: 'paid',
+      paid_at: new Date().toISOString(),
+      payment_source: paymentSource as 'salary' | 'kpi_bonus' | 'end_of_contract_bonus' | 'manual',
+    })
     .eq('id', installmentId)
 
   if (error) return { error: error.message }
 
   // Auto-close the loan if all installments are now paid
-  const { data: installments } = await admin
+  const { data: allInstallments } = await admin
     .from('loan_installments')
     .select('status')
     .eq('loan_id', loanId)
 
-  if (installments?.every(i => i.status === 'paid')) {
+  if (allInstallments?.every(i => i.status === 'paid')) {
     await admin
       .from('loans')
       .update({ status: 'paid', updated_at: new Date().toISOString() })

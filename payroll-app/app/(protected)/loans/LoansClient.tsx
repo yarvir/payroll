@@ -31,6 +31,12 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: 'Cancelled',
 }
 
+const DEDUCTION_LABELS: Record<string, string> = {
+  salary:   'Salary',
+  bonus:    'Bonus',
+  flexible: 'Flexible',
+}
+
 function fmt(n: number) {
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -117,13 +123,17 @@ export default function LoansClient({ loans, groups, employees, canManage }: Pro
                   <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Installments</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Remaining</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Start Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Deduction</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filtered.map(loan => {
+                  const paidAmount = loan.loan_installments
+                    .filter(i => i.status === 'paid')
+                    .reduce((sum, i) => sum + i.amount, 0)
+                  const remaining = Math.max(0, loan.total_amount - paidAmount)
                   const paidCount = loan.loan_installments.filter(i => i.status === 'paid').length
-                  const remaining = loan.total_amount - paidCount * loan.monthly_deduction
                   return (
                     <tr
                       key={loan.id}
@@ -149,12 +159,15 @@ export default function LoansClient({ loans, groups, employees, canManage }: Pro
                         {paidCount}/{loan.number_of_installments}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-gray-900">
-                        {fmt(Math.max(0, remaining))}
+                        {fmt(remaining)}
                       </td>
                       <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
                         {new Date(loan.start_date + 'T00:00:00').toLocaleDateString('en-GB', {
                           day: '2-digit', month: 'short', year: 'numeric',
                         })}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">
+                        {DEDUCTION_LABELS[loan.deduction_method] ?? loan.deduction_method}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_STYLES[loan.status] ?? ''}`}>

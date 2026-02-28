@@ -26,12 +26,12 @@ export default async function LoansPage() {
   }
 
   const perms = await getUserPermissions(userRole)
-  const canManage = perms.manage_employees  // owner + hr
+  const canManage = perms.manage_employees // owner + hr
 
   const [loans, { data: groupsData }, { data: employeesData }] = await Promise.all([
     getAllLoans(),
     supabase.from('employee_groups').select('*').order('name'),
-    admin.from('employees').select('id, full_name, employee_number, status').eq('status', 'active').order('full_name'),
+    admin.from('employees').select('id, full_name, employee_number').eq('status', 'active').order('full_name'),
   ])
 
   const groups = (groupsData ?? []) as EmployeeGroup[]
