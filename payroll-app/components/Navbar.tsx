@@ -17,6 +17,8 @@ const baseNavLinks = [
   { href: '/groups', label: 'Groups' },
 ]
 
+const loansRoles = ['owner', 'hr', 'accountant']
+
 const settingsLinks = [
   { href: '/settings/roles',          label: 'Roles' },
   { href: '/settings/permissions',    label: 'Permissions' },
@@ -31,6 +33,7 @@ export default function Navbar({ profile }: NavbarProps) {
 
   const navLinks = [
     ...baseNavLinks,
+    ...(loansRoles.includes(profile.role) ? [{ href: '/loans', label: 'Loans' }] : []),
     ...(profile.role === 'owner' ? [{ href: '/users', label: 'Users' }] : []),
   ]
 
