@@ -234,6 +234,82 @@ export type Database = {
         }
         Relationships: []
       }
+      loans: {
+        Row: {
+          id: string
+          employee_id: string
+          total_amount: number
+          currency: string
+          number_of_installments: number
+          monthly_deduction: number
+          start_date: string
+          status: 'active' | 'paid' | 'cancelled'
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          employee_id: string
+          total_amount: number
+          currency: string
+          number_of_installments: number
+          monthly_deduction: number
+          start_date: string
+          status?: 'active' | 'paid' | 'cancelled'
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          employee_id?: string
+          total_amount?: number
+          currency?: string
+          number_of_installments?: number
+          monthly_deduction?: number
+          start_date?: string
+          status?: 'active' | 'paid' | 'cancelled'
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      loan_installments: {
+        Row: {
+          id: string
+          loan_id: string
+          installment_number: number
+          due_date: string
+          amount: number
+          status: 'pending' | 'paid'
+          payroll_run_id: string | null
+          paid_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          loan_id: string
+          installment_number: number
+          due_date: string
+          amount: number
+          status?: 'pending' | 'paid'
+          payroll_run_id?: string | null
+          paid_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          loan_id?: string
+          installment_number?: number
+          due_date?: string
+          amount?: number
+          status?: 'pending' | 'paid'
+          payroll_run_id?: string | null
+          paid_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -267,3 +343,5 @@ export type RolePermission = Database['public']['Tables']['role_permissions']['R
 export type EmployeePaymentMethod = Database['public']['Tables']['employee_payment_methods']['Row']
 export type CompanySettings = Database['public']['Tables']['company_settings']['Row']
 export type Department = Database['public']['Tables']['departments']['Row']
+export type Loan = Database['public']['Tables']['loans']['Row']
+export type LoanInstallment = Database['public']['Tables']['loan_installments']['Row']

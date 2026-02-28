@@ -3,14 +3,16 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getUserPermissions } from '@/lib/permissions'
 import { getPaymentMethods } from '../actions'
+import { getEmployeeLoans } from '../../loans/actions'
 import EmployeeDetailClient from './EmployeeDetailClient'
 import type { Employee, EmployeeGroup, Department, Profile } from '@/types/database'
 
 interface Props {
   params: { id: string }
+  searchParams: { tab?: string }
 }
 
-export default async function EmployeeDetailPage({ params }: Props) {
+export default async function EmployeeDetailPage({ params, searchParams }: Props) {
   const supabase = createClient()
   const {
     data: { user },
@@ -43,11 +45,16 @@ export default async function EmployeeDetailPage({ params }: Props) {
   // Sensitive employees are only visible to roles with view_all_employees
   if (employee.is_sensitive && !viewSensitive) notFound()
 
-  const [paymentMethods, { data: groups }, { data: departments }] = await Promise.all([
+  const [paymentMethods, { data: groups }, { data: departments }, loans] = await Promise.all([
     getPaymentMethods(params.id),
     supabase.from('employee_groups').select('*').order('name'),
     supabase.from('departments').select('*').order('name'),
+    getEmployeeLoans(params.id),
   ])
+
+  // Validate the tab param so we only forward known tab names
+  const validTabs = ['info', 'bank', 'contracts', 'leave', 'loans']
+  const initialTab = validTabs.includes(searchParams.tab ?? '') ? searchParams.tab : undefined
 
   return (
     <EmployeeDetailClient
@@ -57,6 +64,8 @@ export default async function EmployeeDetailPage({ params }: Props) {
       departments={(departments ?? []) as Department[]}
       canManage={canManage}
       viewSensitive={viewSensitive}
+      loans={loans}
+      initialTab={initialTab}
     />
   )
 }
