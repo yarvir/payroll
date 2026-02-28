@@ -271,8 +271,8 @@ function InfoTab({
       })
     : null
 
-  const birthDate = employee.birth_date
-    ? new Date(employee.birth_date).toLocaleDateString('en-GB', {
+  const birthDate = employee.birthdate
+    ? new Date(employee.birthdate).toLocaleDateString('en-GB', {
         day: '2-digit', month: 'short', year: 'numeric',
       })
     : null
@@ -365,9 +365,9 @@ function InfoTab({
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Birthdate</label>
             <input
-              name="birth_date"
+              name="birthdate"
               type="date"
-              defaultValue={employee.birth_date ?? ''}
+              defaultValue={employee.birthdate ?? ''}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>

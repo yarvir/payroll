@@ -63,7 +63,7 @@ export type Database = {
           is_sensitive: boolean
           status: 'active' | 'inactive' | 'on_leave'
           hire_date: string | null
-          birth_date: string | null
+          birthdate: string | null
           created_at: string
           updated_at: string
         }
@@ -80,7 +80,7 @@ export type Database = {
           is_sensitive?: boolean
           status?: 'active' | 'inactive' | 'on_leave'
           hire_date?: string | null
-          birth_date?: string | null
+          birthdate?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -97,7 +97,7 @@ export type Database = {
           is_sensitive?: boolean
           status?: 'active' | 'inactive' | 'on_leave'
           hire_date?: string | null
-          birth_date?: string | null
+          birthdate?: string | null
           updated_at?: string
         }
         Relationships: []

@@ -808,8 +808,8 @@ function EmployeeRow({
       {/* Birthdate */}
       {show('birthdate') && (
         <span className="text-sm text-gray-500 hidden lg:block flex-shrink-0">
-          {emp.birth_date
-            ? new Date(emp.birth_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+          {emp.birthdate
+            ? new Date(emp.birthdate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
             : '—'}
         </span>
       )}
