@@ -289,7 +289,7 @@ export type Database = {
           id: string
           loan_id: string
           installment_number: number
-          due_date: string
+          deduction_date: string
           amount: number
           status: 'pending' | 'paid'
           payroll_run_id: string | null
@@ -301,7 +301,7 @@ export type Database = {
           id?: string
           loan_id: string
           installment_number: number
-          due_date: string
+          deduction_date: string
           amount: number
           status?: 'pending' | 'paid'
           payroll_run_id?: string | null
@@ -313,7 +313,7 @@ export type Database = {
           id?: string
           loan_id?: string
           installment_number?: number
-          due_date?: string
+          deduction_date?: string
           amount?: number
           status?: 'pending' | 'paid'
           payroll_run_id?: string | null

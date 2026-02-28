@@ -774,7 +774,7 @@ function LoansTab({
                 <thead>
                   <tr className="border-b border-gray-100 bg-white">
                     <th className="px-5 py-2.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">#</th>
-                    <th className="px-5 py-2.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Due Date</th>
+                    <th className="px-5 py-2.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Deduction Date</th>
                     <th className="px-5 py-2.5 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">Amount</th>
                     <th className="px-5 py-2.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
                     <th className="px-5 py-2.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Source</th>
@@ -788,7 +788,7 @@ function LoansTab({
                     <tr key={inst.id} className="hover:bg-gray-50/50">
                       <td className="px-5 py-2.5 text-gray-500">{inst.installment_number}</td>
                       <td className="px-5 py-2.5 text-gray-600 whitespace-nowrap">
-                        {new Date(inst.due_date + 'T00:00:00').toLocaleDateString('en-GB', {
+                        {new Date(inst.deduction_date + 'T00:00:00').toLocaleDateString('en-GB', {
                           day: '2-digit', month: 'short', year: 'numeric',
                         })}
                       </td>

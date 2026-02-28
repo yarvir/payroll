@@ -169,16 +169,25 @@ export async function createLoan(formData: FormData): Promise<{ error?: string }
 
   if (loanError) return { error: loanError.message }
 
-  // Generate installment rows
+  // Generate installment rows.
+  // Deduction dates: 10th of the month AFTER the loan start date, then 10th
+  // of each subsequent month. Hardcoded to day 10 until a Payroll Settings
+  // page exposes a configurable payment day.
+  const PAYMENT_DAY = 10
   const startDateObj = new Date(start_date + 'T00:00:00')
   const installments = installmentAmounts.map((amount, i) => {
-    const dueDate = new Date(startDateObj)
-    dueDate.setMonth(dueDate.getMonth() + i)
+    // new Date(year, month, day) handles month overflow automatically.
+    const d = new Date(startDateObj.getFullYear(), startDateObj.getMonth() + 1 + i, PAYMENT_DAY)
+    const deduction_date = [
+      d.getFullYear(),
+      String(d.getMonth() + 1).padStart(2, '0'),
+      String(d.getDate()).padStart(2, '0'),
+    ].join('-')
     const isPaid = i < already_paid
     return {
       loan_id: loan.id,
       installment_number: i + 1,
-      due_date: dueDate.toISOString().split('T')[0],
+      deduction_date,
       amount,
       status: isPaid ? ('paid' as const) : ('pending' as const),
       paid_at: isPaid ? new Date().toISOString() : null,

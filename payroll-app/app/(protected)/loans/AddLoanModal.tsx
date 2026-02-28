@@ -117,11 +117,13 @@ export default function AddLoanModal({
   const customValid = Math.abs(customRemaining) <= 0.01 &&
     customAmounts.every(v => v !== '' && !isNaN(parseFloat(v)) && parseFloat(v) >= 0)
 
-  // ── Due dates for custom table ─────────────────────────────────────────────
-  function getDueDate(index: number): string {
+  // ── Deduction dates for custom table ──────────────────────────────────────
+  // First deduction = 10th of the month AFTER start date; then 10th of each
+  // subsequent month. Matches the PAYMENT_DAY=10 constant in actions.ts.
+  function getDeductionDate(index: number): string {
     if (!startDate) return '—'
-    const d = new Date(startDate + 'T00:00:00')
-    d.setMonth(d.getMonth() + index)
+    const start = new Date(startDate + 'T00:00:00')
+    const d = new Date(start.getFullYear(), start.getMonth() + 1 + index, 10)
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
   }
 
@@ -329,7 +331,7 @@ export default function AddLoanModal({
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-200">
                       <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">#</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Due Date</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Deduction Date</th>
                       <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase">Amount ({currency})</th>
                     </tr>
                   </thead>
@@ -337,7 +339,7 @@ export default function AddLoanModal({
                     {Array.from({ length: parseInt(installments, 10) }, (_, i) => (
                       <tr key={i}>
                         <td className="px-3 py-1.5 text-gray-500 text-xs">{i + 1}</td>
-                        <td className="px-3 py-1.5 text-gray-500 text-xs whitespace-nowrap">{getDueDate(i)}</td>
+                        <td className="px-3 py-1.5 text-gray-500 text-xs whitespace-nowrap">{getDeductionDate(i)}</td>
                         <td className="px-2 py-1">
                           <input
                             type="number"
